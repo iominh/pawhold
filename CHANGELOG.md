@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.1
+- Fix: the Stop building button no longer overlaps the hint toast; toasts now sit above the button and the button text stays on one line.
+
 ## 1.3.0
 - Mobile rotation reworked. Twisting two fingers now turns the map the way your fingers turn (it was backwards). Pinch-zoom and twist no longer fight each other: the gesture you start doing wins, with a small dead zone so a pinch never spins the map.
 - New on-screen buttons: rotate left and right in 45 degree steps with smooth easing, a tilt toggle between a low and a high camera angle, and a reset-view button.

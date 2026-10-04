@@ -206,7 +206,7 @@ function orderState(u) {
 }
 const buildCancelEl = $('buildCancel');
 function cancelBuild() { G.build = null; ghost.visible = false; updateDock(true); sfx('click'); syncBuildCancel(); }
-function syncBuildCancel() { const on = !!G.build && !G.over; buildCancelEl.classList.toggle('on', on); if (on) buildCancelEl.textContent = `\u2715 Stop building ${BDEF[G.build].name}`; }
+function syncBuildCancel() { const on = !!G.build && !G.over; buildCancelEl.classList.toggle('on', on); if (on) buildCancelEl.textContent = '\u2715 Stop building'; }
 buildCancelEl.addEventListener('click', cancelBuild);
 function updateInfo() {
   syncBuildCancel();

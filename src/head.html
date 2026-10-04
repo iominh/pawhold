@@ -85,7 +85,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .card .cs .no{color:var(--danger)}
 .card .lk{position:absolute;right:6px;top:5px;font-size:11px;color:var(--head);font-weight:700}
 
-#toast{position:absolute;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--toast);color:var(--text);border:1px solid var(--gold);border-radius:6px;padding:7px 14px;opacity:0;transition:opacity .25s;pointer-events:none;text-align:center}
+#toast{position:absolute;left:50%;bottom:calc(var(--dockh,140px) + 66px);transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--toast);color:var(--text);border:1px solid var(--gold);border-radius:6px;padding:7px 14px;opacity:0;transition:opacity .25s;pointer-events:none;text-align:center}
 #toast.on{opacity:1}
 #toast.bad{border-color:var(--danger)}
 
@@ -116,7 +116,7 @@ html,body{overscroll-behavior:none}
 #info .btn.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,138,18,.4)}
 #info .btn[disabled]{opacity:.5}
 #infoClose{position:absolute;top:4px;right:4px;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--chip);color:var(--head);font-size:15px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0;z-index:2}
-#buildCancel{display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--dockh,150px) + 10px);z-index:4;min-height:44px;padding:8px 18px;font-size:15px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+#buildCancel{display:none;white-space:nowrap;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--dockh,150px) + 10px);z-index:4;min-height:44px;padding:8px 18px;font-size:15px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
 #buildCancel.on{display:block}
 #zoomCtrls{display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);flex-direction:column;gap:6px;z-index:3}
 #zoomCtrls button{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--chip);color:var(--head);font-size:24px;line-height:1;padding:0;cursor:pointer;opacity:.92}

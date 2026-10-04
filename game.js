@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.3.0', GAME_BUILD = 'b9eb47d';
+const GAME_VERSION = '1.3.1', GAME_BUILD = '58f64d6';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 15;
@@ -2405,7 +2405,7 @@ function orderState(u) {
 }
 const buildCancelEl = $('buildCancel');
 function cancelBuild() { G.build = null; ghost.visible = false; updateDock(true); sfx('click'); syncBuildCancel(); }
-function syncBuildCancel() { const on = !!G.build && !G.over; buildCancelEl.classList.toggle('on', on); if (on) buildCancelEl.textContent = `\u2715 Stop building ${BDEF[G.build].name}`; }
+function syncBuildCancel() { const on = !!G.build && !G.over; buildCancelEl.classList.toggle('on', on); if (on) buildCancelEl.textContent = '\u2715 Stop building'; }
 buildCancelEl.addEventListener('click', cancelBuild);
 function updateInfo() {
   syncBuildCancel();
