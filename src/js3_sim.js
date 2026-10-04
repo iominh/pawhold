@@ -379,6 +379,9 @@ function unstick(u) {
   if (u.role !== 'worker' && u.team === 0) { u.tgt = null; u.giveUp = G.t + 3; if (u.order && u.order.type === 'move') u.order = null; }
 }
 function watchdog(u, dt) {
+  if (blockedAt(u.x, u.z, u.team === 0 ? 0 : 1, null) === true || (u.team === 0 && blockedAt(u.x, u.z, 0, null))) {   // standing inside a building or cliff: step out to the nearest free spot
+    const sp = validSpot(u.x, u.z); u.x = sp[0]; u.z = sp[1]; u.path = null; u.wdT = 0; return;
+  }
   if (u.mv === undefined || G.t - u.mv > 0.3) { u.wdT = 0; return; }
   if (!u.wdT) { u.wdT = 0.0001; u.wdX = u.x; u.wdZ = u.z; return; }
   u.wdT += dt;
@@ -656,13 +659,27 @@ function pickNode(u) {
   return null;
 }
 function updateWorker(u, dt) {
-  const scare = nearest(enemies, u.x, u.z, 3.5);
-  if (scare) { if (u.state !== 'flee') { releaseWorker(u); u.state = 'flee'; } u.fleeT = 2.5; }
+  // Settlers run from raiders that are close, or a little further away when the raider is hunting animals rather than chewing a building.
+  let scare = nearest(enemies, u.x, u.z, 3.5);
+  if (scare) {
+    const sd = Math.hypot(scare.x - u.x, scare.z - u.z), hunting = scare.tgt && !scare.tgt.cells;
+    if ((sd > 2.2 && !hunting) || (scare.lastAct !== undefined && G.t - scare.lastAct > 8) || (u.brave || 0) > G.t) scare = null;
+  }
+  if (scare) {
+    if (u.state !== 'flee') { releaseWorker(u); u.state = 'flee'; u.fleeSince = G.t; }
+    u.fleeT = 2.5;
+    if (G.t - u.fleeSince > 12) { u.brave = G.t + 8; u.state = 'idle'; u.wait = 0; scare = null; }   // pinned for too long: get back to work and take the risk
+  }
   if (u.state === 'flee') {
     u.fleeT -= dt;
-    { const fx = KX + ((u.slot % 7) - 3) * 0.75, fz = KZ + 2.7 + (Math.floor(u.slot / 7) % 3) * 0.75;
-      if (Math.hypot(fx - u.x, fz - u.z) > 0.9) moveTo(u, fx, fz, dt * 1.25); }
-    if (u.fleeT <= 0 && !scare) u.state = 'idle';
+    let fx = KX + ((u.slot % 7) - 3) * 0.75, fz = KZ + 2.7 + (Math.floor(u.slot / 7) % 3) * 0.75;
+    if (scare && Math.hypot(scare.x - KX, scare.z - KZ) < 6) {   // the raider is at the Hall: run the other way instead
+      const ax = u.x - scare.x, az = u.z - scare.z, al = Math.hypot(ax, az) || 1;
+      if (!u.fleeTo || G.t - (u.fleeToT || 0) > 1.5) { u.fleeTo = validSpot(u.x + ax / al * 4, u.z + az / al * 4); u.fleeToT = G.t; }
+      fx = u.fleeTo[0]; fz = u.fleeTo[1];
+    } else u.fleeTo = null;
+    if (Math.hypot(fx - u.x, fz - u.z) > 0.9) moveTo(u, fx, fz, dt * 1.25);
+    if (u.fleeT <= 0 && !scare) { u.state = 'idle'; u.fleeTo = null; }
     return;
   }
   switch (u.state) {
@@ -856,6 +873,12 @@ function updateEnemy(e, dt) {
   const reachOf = o => (o.cells ? o.def.r : 0.3) + d.range;
   if (e.hitB && Math.hypot(e.hitB.x - e.x, e.hitB.z - e.z) < e.hitB.def.r + 1.2) t = e.hitB;
   else if (e.hitB) { e.hitB = null; e.blockT = 0; }
+  if (e.lastAct === undefined) { e.lastAct = G.t; e.actX = e.x; e.actZ = e.z; }
+  if (Math.hypot(e.x - e.actX, e.z - e.actZ) > 0.5) { e.lastAct = G.t; e.actX = e.x; e.actZ = e.z; }
+  if (G.t - e.lastAct > 18) {   // a raider that has neither moved nor fought for a long while is stuck: it slinks away so the raid can end
+    e.hp = 0; e.dead = true; scene.remove(e.model); dropBar(e); puff(e.x, e.y + 0.5, e.z, 0x9a8f80, 8, 1.4, 0.7, 0.12);
+    toast('A lost raider gave up and slunk away'); return;
+  }
   if (!t) return;
   const dd = Math.hypot(t.x - e.x, t.z - e.z);
   if (dd > reachOf(t)) {
@@ -866,7 +889,7 @@ function updateEnemy(e, dt) {
   } else {
     e.face = Math.atan2(t.x - e.x, t.z - e.z);
     if (e.cd <= 0) {
-      e.cd = d.rate; e.atk = 0.25;
+      e.cd = d.rate; e.atk = 0.25; e.lastAct = G.t;
       if (d.shot) shoot(e, t, d.shot, e.dmg, 0, 0.5);
       else hurt(t, e.dmg * (d.siege && t.cells ? 2.5 : 1), e);
     }
@@ -943,7 +966,7 @@ function trainUnit(role) {
   if (popCount() >= G.popCap) return toast('Not enough housing. Build more Burrow Houses', true);
   if (!afford(d.cost)) return toast('Not enough resources', true);
   pay(d.cost);
-  const u = makeUnit(role, bar.x + rnd(-0.4, 0.4), bar.z + 1.5);
+  const sp0 = validSpot(bar.x + rnd(-0.4, 0.4), bar.z + 1.5), u = makeUnit(role, sp0[0], sp0[1]);
   puff(u.x, 0.5, u.z, 0xffffff, 5, 1.2, 0.4, 0.1); sfx('spawn', u.x, u.z);
 }
 const carryCap = u => 8 + (u.lvl >> 1) + 2 * G.tech.tools + (u.elite ? 3 : 0);
@@ -1012,7 +1035,7 @@ function step(dt) {
   if (G.birthT <= 0) {
     G.birthT = 11;
     const workers = units.filter(u => u.role === 'worker' && !u.dead).length;
-    if (popCount() < G.popCap && G.res.food >= 25 && workers < 30) { G.res.food -= 25; const u = makeUnit('worker', KX + rnd(-1, 1), KZ + 2.3); puff(u.x, 0.5, u.z, 0xffffff, 4, 1, 0.4, 0.08); sfx('spawn', u.x, u.z); }
+    if (popCount() < G.popCap && G.res.food >= 25 && workers < 30) { G.res.food -= 25; const sp0 = validSpot(KX + rnd(-1, 1), KZ + 2.3), u = makeUnit('worker', sp0[0], sp0[1]); puff(u.x, 0.5, u.z, 0xffffff, 4, 1, 0.4, 0.08); sfx('spawn', u.x, u.z); }
   }
   // forests regrow slowly
   G.treeT -= dt;

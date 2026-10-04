@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.4.1', GAME_BUILD = '369f1b5';
+const GAME_VERSION = '1.5.0', GAME_BUILD = '82a0202';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 15;
@@ -111,12 +111,23 @@ function addNode(type, i, j, amt) {
   g.rotation.y = rnd(0, 6.28);
   let max = 30;
   if (type === 'wood') {
-    const lm = { mat: pick(leafMats) };
-    box(g, -0.07, 0, -0.07, 0.14, 0.35, 0.14, 0x6b4a2f);
-    box(g, -0.34, 0.3, -0.34, 0.68, 0.22, 0.68, 0, lm);
-    box(g, -0.25, 0.5, -0.25, 0.5, 0.22, 0.5, 0, lm);
-    box(g, -0.14, 0.7, -0.14, 0.28, 0.2, 0.28, 0, lm);
-    g.scale.y = rnd(0.85, 1.3);
+    const lm = { mat: pick(leafMats) }, v = hash(i * 5.3, j * 9.1);
+    if (v < 0.5) {   // round canopy
+      box(g, -0.07, 0, -0.07, 0.14, 0.35, 0.14, 0x6b4a2f);
+      box(g, -0.34, 0.3, -0.34, 0.68, 0.22, 0.68, 0, lm);
+      box(g, -0.25, 0.5, -0.25, 0.5, 0.22, 0.5, 0, lm);
+      box(g, -0.14, 0.7, -0.14, 0.28, 0.2, 0.28, 0, lm);
+    } else if (v < 0.78) {   // pine
+      box(g, -0.06, 0, -0.06, 0.12, 0.3, 0.12, 0x5a3d26);
+      [[0.74, 0.22], [0.56, 0.42], [0.38, 0.6], [0.2, 0.76]].forEach(([s, y]) => box(g, -s / 2, y, -s / 2, s, 0.2, s, 0, lm));
+      box(g, -0.05, 0.94, -0.05, 0.1, 0.1, 0.1, 0, lm);
+    } else {   // tall tree with a high crown
+      box(g, -0.07, 0, -0.07, 0.14, 0.55, 0.14, 0x6b4a2f);
+      box(g, -0.3, 0.48, -0.3, 0.6, 0.24, 0.6, 0, lm);
+      box(g, -0.36, 0.66, -0.2, 0.72, 0.2, 0.44, 0, lm);
+      box(g, -0.18, 0.84, -0.18, 0.36, 0.2, 0.36, 0, lm);
+    }
+    g.scale.y = rnd(0.85, 1.25);
   } else if (type === 'stone') {
     max = 60;
     box(g, -0.3, 0, -0.25, 0.5, 0.3, 0.45, 0x9aa0a6);
@@ -1014,6 +1025,9 @@ function unstick(u) {
   if (u.role !== 'worker' && u.team === 0) { u.tgt = null; u.giveUp = G.t + 3; if (u.order && u.order.type === 'move') u.order = null; }
 }
 function watchdog(u, dt) {
+  if (blockedAt(u.x, u.z, u.team === 0 ? 0 : 1, null) === true || (u.team === 0 && blockedAt(u.x, u.z, 0, null))) {   // standing inside a building or cliff: step out to the nearest free spot
+    const sp = validSpot(u.x, u.z); u.x = sp[0]; u.z = sp[1]; u.path = null; u.wdT = 0; return;
+  }
   if (u.mv === undefined || G.t - u.mv > 0.3) { u.wdT = 0; return; }
   if (!u.wdT) { u.wdT = 0.0001; u.wdX = u.x; u.wdZ = u.z; return; }
   u.wdT += dt;
@@ -1291,13 +1305,27 @@ function pickNode(u) {
   return null;
 }
 function updateWorker(u, dt) {
-  const scare = nearest(enemies, u.x, u.z, 3.5);
-  if (scare) { if (u.state !== 'flee') { releaseWorker(u); u.state = 'flee'; } u.fleeT = 2.5; }
+  // Settlers run from raiders that are close, or a little further away when the raider is hunting animals rather than chewing a building.
+  let scare = nearest(enemies, u.x, u.z, 3.5);
+  if (scare) {
+    const sd = Math.hypot(scare.x - u.x, scare.z - u.z), hunting = scare.tgt && !scare.tgt.cells;
+    if ((sd > 2.2 && !hunting) || (scare.lastAct !== undefined && G.t - scare.lastAct > 8) || (u.brave || 0) > G.t) scare = null;
+  }
+  if (scare) {
+    if (u.state !== 'flee') { releaseWorker(u); u.state = 'flee'; u.fleeSince = G.t; }
+    u.fleeT = 2.5;
+    if (G.t - u.fleeSince > 12) { u.brave = G.t + 8; u.state = 'idle'; u.wait = 0; scare = null; }   // pinned for too long: get back to work and take the risk
+  }
   if (u.state === 'flee') {
     u.fleeT -= dt;
-    { const fx = KX + ((u.slot % 7) - 3) * 0.75, fz = KZ + 2.7 + (Math.floor(u.slot / 7) % 3) * 0.75;
-      if (Math.hypot(fx - u.x, fz - u.z) > 0.9) moveTo(u, fx, fz, dt * 1.25); }
-    if (u.fleeT <= 0 && !scare) u.state = 'idle';
+    let fx = KX + ((u.slot % 7) - 3) * 0.75, fz = KZ + 2.7 + (Math.floor(u.slot / 7) % 3) * 0.75;
+    if (scare && Math.hypot(scare.x - KX, scare.z - KZ) < 6) {   // the raider is at the Hall: run the other way instead
+      const ax = u.x - scare.x, az = u.z - scare.z, al = Math.hypot(ax, az) || 1;
+      if (!u.fleeTo || G.t - (u.fleeToT || 0) > 1.5) { u.fleeTo = validSpot(u.x + ax / al * 4, u.z + az / al * 4); u.fleeToT = G.t; }
+      fx = u.fleeTo[0]; fz = u.fleeTo[1];
+    } else u.fleeTo = null;
+    if (Math.hypot(fx - u.x, fz - u.z) > 0.9) moveTo(u, fx, fz, dt * 1.25);
+    if (u.fleeT <= 0 && !scare) { u.state = 'idle'; u.fleeTo = null; }
     return;
   }
   switch (u.state) {
@@ -1491,6 +1519,12 @@ function updateEnemy(e, dt) {
   const reachOf = o => (o.cells ? o.def.r : 0.3) + d.range;
   if (e.hitB && Math.hypot(e.hitB.x - e.x, e.hitB.z - e.z) < e.hitB.def.r + 1.2) t = e.hitB;
   else if (e.hitB) { e.hitB = null; e.blockT = 0; }
+  if (e.lastAct === undefined) { e.lastAct = G.t; e.actX = e.x; e.actZ = e.z; }
+  if (Math.hypot(e.x - e.actX, e.z - e.actZ) > 0.5) { e.lastAct = G.t; e.actX = e.x; e.actZ = e.z; }
+  if (G.t - e.lastAct > 18) {   // a raider that has neither moved nor fought for a long while is stuck: it slinks away so the raid can end
+    e.hp = 0; e.dead = true; scene.remove(e.model); dropBar(e); puff(e.x, e.y + 0.5, e.z, 0x9a8f80, 8, 1.4, 0.7, 0.12);
+    toast('A lost raider gave up and slunk away'); return;
+  }
   if (!t) return;
   const dd = Math.hypot(t.x - e.x, t.z - e.z);
   if (dd > reachOf(t)) {
@@ -1501,7 +1535,7 @@ function updateEnemy(e, dt) {
   } else {
     e.face = Math.atan2(t.x - e.x, t.z - e.z);
     if (e.cd <= 0) {
-      e.cd = d.rate; e.atk = 0.25;
+      e.cd = d.rate; e.atk = 0.25; e.lastAct = G.t;
       if (d.shot) shoot(e, t, d.shot, e.dmg, 0, 0.5);
       else hurt(t, e.dmg * (d.siege && t.cells ? 2.5 : 1), e);
     }
@@ -1578,7 +1612,7 @@ function trainUnit(role) {
   if (popCount() >= G.popCap) return toast('Not enough housing. Build more Burrow Houses', true);
   if (!afford(d.cost)) return toast('Not enough resources', true);
   pay(d.cost);
-  const u = makeUnit(role, bar.x + rnd(-0.4, 0.4), bar.z + 1.5);
+  const sp0 = validSpot(bar.x + rnd(-0.4, 0.4), bar.z + 1.5), u = makeUnit(role, sp0[0], sp0[1]);
   puff(u.x, 0.5, u.z, 0xffffff, 5, 1.2, 0.4, 0.1); sfx('spawn', u.x, u.z);
 }
 const carryCap = u => 8 + (u.lvl >> 1) + 2 * G.tech.tools + (u.elite ? 3 : 0);
@@ -1647,7 +1681,7 @@ function step(dt) {
   if (G.birthT <= 0) {
     G.birthT = 11;
     const workers = units.filter(u => u.role === 'worker' && !u.dead).length;
-    if (popCount() < G.popCap && G.res.food >= 25 && workers < 30) { G.res.food -= 25; const u = makeUnit('worker', KX + rnd(-1, 1), KZ + 2.3); puff(u.x, 0.5, u.z, 0xffffff, 4, 1, 0.4, 0.08); sfx('spawn', u.x, u.z); }
+    if (popCount() < G.popCap && G.res.food >= 25 && workers < 30) { G.res.food -= 25; const sp0 = validSpot(KX + rnd(-1, 1), KZ + 2.3), u = makeUnit('worker', sp0[0], sp0[1]); puff(u.x, 0.5, u.z, 0xffffff, 4, 1, 0.4, 0.08); sfx('spawn', u.x, u.z); }
   }
   // forests regrow slowly
   G.treeT -= dt;
@@ -2865,7 +2899,7 @@ function frame(now) {
   if (!G.paused && !G.over) for (let k = 0; k < G.speed; k++) step(dt);
   const adt = G.paused ? 0 : dt * G.speed;
   camHoldTick(dt); panKeys(dt); applyCam();
-  updateEnv(dt, now); audioUpdate(dt); autosaveTick(dt);
+  updateEnv(dt, now); updateFx(dt, now); audioUpdate(dt); autosaveTick(dt);
   if (tipHold && now > tipHold) { tipHold = 0; hideTip(); }
   for (const u of units) if (!u.dead) animateUnit(u, adt);
   for (const e of enemies) if (!e.dead) animateUnit(e, adt);
@@ -3128,3 +3162,160 @@ function refreshContinue() {
   $('startBtn').addEventListener('click', () => { gameStarted = true; autoT = 20; });
   $('againBtn').addEventListener('click', () => { gameStarted = true; autoT = 20; });
 })();
+
+/* ===================== scenery and ambient effects =====================
+   Ground decoration (grass tufts, flowers, pebbles), chimney smoke, fireflies at night
+   and shimmering water. Everything here is cosmetic and cheap: a few instanced meshes
+   and a handful of particles, so it stays smooth on phones. */
+const FX = { terrainRef: null, navVer: -1, decoT: 0, smokeT: 0, waterT: 0, waterSig: '', waterIdx: [], waterBase: [] };
+const fxM = new THREE.Matrix4(), fxC = new THREE.Color(), fxQ = new THREE.Quaternion(), fxS = new THREE.Vector3(), fxP = new THREE.Vector3();
+const TUFT_N = 2;   // tufts per decorated tile
+const decoGeo = new THREE.BoxGeometry(1, 1, 1);
+const tuftMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+const flowerMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+const pebbleMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+let tuftMesh = null, flowerMesh = null, pebbleMesh = null;
+const decoTiles = [];   // { i, j, kind: 't'|'f'|'p', idx, slot }
+const FLOWER_COLS = [0xf2567a, 0xf7d94c, 0xffffff, 0x9d7bff, 0xff9a3c];
+
+function buildDeco() {
+  for (const m of [tuftMesh, flowerMesh, pebbleMesh]) if (m) { scene.remove(m); m.dispose(); }
+  decoTiles.length = 0;
+  const tufts = [], flowers = [], pebbles = [];
+  for (let i = 2; i < MAP - 2; i++) for (let j = 2; j < MAP - 2; j++) {
+    const k = kind[i][j], h1 = hash(i * 3.1, j * 7.3), h2 = hash(i * 11.7, j * 5.9);
+    if (k === 'g') {
+      if (tileDist(i, j) < 2.6) continue;
+      if (h1 < 0.42) tufts.push([i, j]);
+      if (h2 < 0.085) flowers.push([i, j]);
+    } else if (k === 'h' && h1 < 0.45) pebbles.push([i, j]);
+  }
+  tuftMesh = new THREE.InstancedMesh(decoGeo, tuftMat, Math.max(1, tufts.length * TUFT_N));
+  flowerMesh = new THREE.InstancedMesh(decoGeo, flowerMat, Math.max(1, flowers.length * 2));
+  pebbleMesh = new THREE.InstancedMesh(decoGeo, pebbleMat, Math.max(1, pebbles.length));
+  tuftMesh.receiveShadow = flowerMesh.receiveShadow = pebbleMesh.receiveShadow = true;
+  tuftMesh.castShadow = false; flowerMesh.castShadow = false; pebbleMesh.castShadow = false;
+  let q = 0;
+  for (const [i, j] of tufts) {
+    for (let t = 0; t < TUFT_N; t++) {
+      const hx = hash(i * 13 + t, j * 17) - 0.5, hz = hash(i * 19, j * 23 + t) - 0.5, hs = 0.18 + hash(i + t, j - t) * 0.16;
+      fxP.set(i + hx * 0.8, topY[i][j] + hs / 2, j + hz * 0.8); fxS.set(0.09, hs, 0.09); fxQ.setFromAxisAngle(new THREE.Vector3(0, 1, 0), hx * 3);
+      fxM.compose(fxP, fxQ, fxS); tuftMesh.setMatrixAt(q, fxM);
+      fxC.setHex(0x6fbf4e).offsetHSL(0, 0, (hash(i * 2 + t, j * 3) - 0.5) * 0.14); tuftMesh.setColorAt(q, fxC);
+      decoTiles.push({ i, j, kind: 't', idx: q, m: fxM.clone() }); q++;
+    }
+  }
+  q = 0;
+  for (const [i, j] of flowers) {
+    const hx = hash(i * 29, j * 31) - 0.5, hz = hash(i * 37, j * 41) - 0.5, col = FLOWER_COLS[Math.floor(hash(i * 43, j * 47) * FLOWER_COLS.length)];
+    fxP.set(i + hx * 0.7, topY[i][j] + 0.11, j + hz * 0.7); fxS.set(0.05, 0.22, 0.05); fxQ.identity();
+    fxM.compose(fxP, fxQ, fxS); flowerMesh.setMatrixAt(q, fxM); flowerMesh.setColorAt(q, fxC.setHex(0x4f9a3a)); decoTiles.push({ i, j, kind: 'f', idx: q, m: fxM.clone() }); q++;
+    fxP.set(i + hx * 0.7, topY[i][j] + 0.25, j + hz * 0.7); fxS.set(0.14, 0.1, 0.14);
+    fxM.compose(fxP, fxQ, fxS); flowerMesh.setMatrixAt(q, fxM); flowerMesh.setColorAt(q, fxC.setHex(col)); decoTiles.push({ i, j, kind: 'f', idx: q, m: fxM.clone() }); q++;
+  }
+  q = 0;
+  for (const [i, j] of pebbles) {
+    const hx = hash(i * 53, j * 59) - 0.5, hz = hash(i * 61, j * 67) - 0.5, s = 0.1 + hash(i * 71, j * 73) * 0.12;
+    fxP.set(i + hx * 0.7, topY[i][j] + s / 2, j + hz * 0.7); fxS.set(s * 1.3, s, s); fxQ.setFromAxisAngle(new THREE.Vector3(0, 1, 0), hz * 4);
+    fxM.compose(fxP, fxQ, fxS); pebbleMesh.setMatrixAt(q, fxM); pebbleMesh.setColorAt(q, fxC.setHex(0xa9afb5).offsetHSL(0, 0, (hx) * 0.1));
+    decoTiles.push({ i, j, kind: 'p', idx: q, m: fxM.clone() }); q++;
+  }
+  scene.add(tuftMesh, flowerMesh, pebbleMesh);
+  FX.terrainRef = terrain; FX.navVer = -1;
+  refreshDeco(true);
+}
+const ZERO_M = new THREE.Matrix4().makeScale(0, 0, 0);
+function refreshDeco(force) {
+  const winter = ENV.sw[3] > 0.5 || ENV.cover > 0.5;
+  for (const d of decoTiles) {
+    const hide = !!occ[d.i][d.j] || !!nodeAt[d.i][d.j] || (d.kind === 'f' && winter);
+    if (!force && hide === d.hidden) continue;
+    d.hidden = hide;
+    const mesh = d.kind === 't' ? tuftMesh : d.kind === 'f' ? flowerMesh : pebbleMesh;
+    mesh.setMatrixAt(d.idx, hide ? ZERO_M : d.m);
+  }
+  tuftMesh.instanceMatrix.needsUpdate = flowerMesh.instanceMatrix.needsUpdate = pebbleMesh.instanceMatrix.needsUpdate = true;
+  if (tuftMesh.instanceColor) tuftMesh.instanceColor.needsUpdate = true;
+  if (flowerMesh.instanceColor) flowerMesh.instanceColor.needsUpdate = true;
+  if (pebbleMesh.instanceColor) pebbleMesh.instanceColor.needsUpdate = true;
+}
+
+/* fireflies: tiny glowing motes that drift near the trees after dark (not in winter or rain) */
+const FF_N = 40;
+const ffMesh = new THREE.InstancedMesh(decoGeo, new THREE.MeshBasicMaterial({ color: 0xd9ff6e, transparent: true, opacity: 0.9 }), FF_N);
+ffMesh.castShadow = false; ffMesh.frustumCulled = false; ffMesh.count = 0; scene.add(ffMesh);
+const ffHome = [];
+function seedFireflies() {
+  ffHome.length = 0;
+  const trees = nodes.filter(n => n.type === 'wood');
+  for (let k = 0; k < FF_N; k++) {
+    const t = trees.length ? trees[Math.floor(Math.random() * trees.length)] : { x: KX + rnd(-8, 8), z: KZ + rnd(-8, 8) };
+    ffHome.push({ x: t.x + rnd(-1.5, 1.5), z: t.z + rnd(-1.5, 1.5), y: 0.4 + rnd(0, 0.9), ph: rnd(0, 6.28), sp: rnd(0.6, 1.3) });
+  }
+}
+function updateFireflies(now) {
+  const w = ENV.w || {}, vis = ENV.night * (1 - ENV.sw[3]) * clamp(1 - (w.rain || 0) * 2 - (w.snow || 0) * 2, 0, 1);
+  const n = Math.floor(FF_N * clamp(vis, 0, 1));
+  ffMesh.count = n;
+  if (!n) return;
+  if (!ffHome.length) seedFireflies();
+  const t = now * 0.001;
+  for (let k = 0; k < n; k++) {
+    const f = ffHome[k], a = t * f.sp + f.ph;
+    const blink = 0.5 + 0.5 * Math.sin(a * 3.1 + Math.sin(a * 1.7)), s = 0.05 + 0.05 * blink;
+    fxP.set(f.x + Math.sin(a) * 0.9 + Math.sin(a * 2.3) * 0.3, f.y + Math.sin(a * 1.4) * 0.35, f.z + Math.cos(a * 0.8) * 0.9);
+    fxS.setScalar(s); fxQ.identity(); fxM.compose(fxP, fxQ, fxS); ffMesh.setMatrixAt(k, fxM);
+  }
+  ffMesh.instanceMatrix.needsUpdate = true;
+}
+
+/* chimney smoke from finished houses and the blacksmith */
+function updateSmoke(dt) {
+  FX.smokeT -= dt;
+  if (FX.smokeT > 0 || parts.length > 150) return;
+  FX.smokeT = 0.3;
+  const homes = buildings.filter(b => b.done && (b.type === 'house' || b.type === 'smith' || b.type === 'keep'));
+  if (!homes.length) return;
+  const cold = 0.6 + ENV.sw[3] * 0.4 + ENV.night * 0.3;   // more fires burning in winter and at night
+  for (let k = 0; k < 2; k++) {
+    if (Math.random() > cold * 0.6) continue;
+    const b = homes[Math.floor(Math.random() * homes.length)];
+    if (b.type === 'smith') puff(b.x + 0.1, b.y + 1.0, b.z - 0.1, Math.random() < 0.5 ? 0xff9a3c : 0x5d6066, 1, 0.22, 1.4, 0.06);
+    else if (b.type === 'keep') puff(b.x + 0.6, b.y + 2.3, b.z - 0.5, 0xd7dbe0, 1, 0.18, 2.2, 0.09);
+    else puff(b.x + 0.21, b.y + 0.96, b.z - 0.17, 0xd7dbe0, 1, 0.16, 1.8, 0.07);
+  }
+}
+
+/* water shimmer: pond tiles ripple with a slow brightness wave */
+function updateWater(now) {
+  if (!terrain || !terrain.instanceColor) return;
+  if (FX.waterSig !== ENV.colSig || FX.terrainRef !== terrain) {
+    FX.waterSig = ENV.colSig; FX.waterIdx.length = 0; FX.waterBase.length = 0;
+    let q = 0;
+    for (let i = 0; i < MAP; i++) for (let j = 0; j < MAP; j++, q++) if (kind[i][j] === 'p') { FX.waterIdx.push(q); terrain.getColorAt(q, fxC); FX.waterBase.push(fxC.clone()); }
+  }
+  if (!FX.waterIdx.length) return;
+  const t = now * 0.0016;
+  for (let k = 0; k < FX.waterIdx.length; k++) {
+    const q = FX.waterIdx[k], i = (q / MAP) | 0, j = q % MAP;
+    const f = 1 + 0.07 * Math.sin(t + i * 0.9 + j * 0.6) + 0.04 * Math.sin(t * 1.7 - i * 0.5 + j * 1.3);
+    fxC.copy(FX.waterBase[k]).multiplyScalar(f * (1 - ENV.sw[3] * 0.6) + ENV.sw[3] * 0.6);
+    terrain.setColorAt(q, fxC);
+  }
+  terrain.instanceColor.needsUpdate = true;
+}
+
+function updateFx(dt, now) {
+  if (terrain && FX.terrainRef !== terrain) { buildDeco(); seedFireflies(); }
+  if (!tuftMesh) return;
+  FX.decoT -= dt;
+  if (NAV.ver !== FX.navVer || FX.decoT <= 0) { FX.navVer = NAV.ver; FX.decoT = 2; refreshDeco(false); }
+  // season tint for the ground cover
+  fxC.setHex(0xffffff); if (tintAmt > 0) fxC.lerp(tintC, tintAmt * 0.9); fxC.lerp(WHITE, ENV.cover * 0.85);
+  if (ENV.night > 0) fxC.multiplyScalar(1 - 0.08 * ENV.night);
+  tuftMat.color.copy(fxC); pebbleMat.color.copy(fxC);
+  updateFireflies(now);
+  if (!G.paused) updateSmoke(dt);
+  FX.waterT -= dt;
+  if (FX.waterT <= 0) { FX.waterT = 0.1; updateWater(now); }
+}

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.0
+- Graphics: grass tufts, wildflowers and pebbles across the valley (hidden under buildings, flowers gone in winter), three tree shapes (round, pine, tall), chimney smoke from houses, the Hall and the Blacksmith, fireflies around the trees at night, rippling pond water and a soft vignette.
+- Stuck units, two real causes fixed. Trained soldiers and newborn settlers could spawn inside a house built just below the Barracks or the Hall and never leave; spawn points now move to the nearest free spot and any animal standing inside a building is stepped out. And a raider chewing a building near the Hall used to pin every settler in flee mode for as long as it lived; settlers now only run from raiders that are close or hunting animals, run away from a raider at the Hall instead of toward it, and go back to work after 12 seconds of hiding. A raider that neither moves nor fights for 18 seconds slinks away so a raid cannot stall.
+
 ## 1.4.1
 - Building placement can no longer trap your animals: a building that would cut any of them off from the Great Hall is refused with a message ("Leave a gap to walk through"), and the ghost shows red. Walls never count, because your animals walk through them.
 - New 1x zoom reset button on the touch camera controls (key 0 on desktop). The reset-view button now also resets zoom.
