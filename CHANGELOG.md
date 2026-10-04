@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.1
+- Fix: settlers you had once sent to a tree, rock or bush kept that preference for the rest of the game, so they could chop wood forever while stone sat at zero. The preference now lasts 90 seconds and is dropped as soon as that resource is plentiful.
+- No resource can run out for good: the hills shed new boulders (up to 26 rocks), berry bushes reseed and gold veins surface slowly, always in reachable spots. The Quarry now also digs 0.12 stone a second on its own.
+
 ## 1.8.0
 - Two new ages after Gunpowder: the Imperial Age (marble and crimson) and the Clockwork Age (iron, copper and brass). Walls, the Hall and every building take on the new look, and walls reach 1050 and 1400 hp.
 - New defenses: Bombard Tower (Imperial, 115 area damage at 11 tiles, slow) and Clockwork Turret (Clockwork, a shot every 0.4 s at 8 tiles).

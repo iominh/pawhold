@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.8.0', GAME_BUILD = 'ee6db5a';
+const GAME_VERSION = '1.8.1', GAME_BUILD = '1e4adec';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 25;
@@ -34,7 +34,7 @@ const BDEF = {
   house:    { name: 'Burrow House', cat: 'town', size: 1, age: 0, cost: { wood: 20 }, hp: 90, time: 3, pop: 3, r: 0.8, blurb: 'Shelter for 3 animals.', role: 'Housing', what: 'Burrows where your animals sleep. Every house raises the population cap by 3.', help: 'More animals means more settlers gathering and more defenders. New settlers only arrive while there is room, and soldiers count against the cap too.', tip: 'If the pop counter is full (say 8/8), nobody new will join. Build houses before you need them.' },
   farm:     { name: 'Berry Farm', cat: 'town', size: 1, age: 0, cost: { wood: 30 }, hp: 70, time: 4, r: 0.8, drop: ['food'], income: { food: 0.55 }, blurb: 'Grows food. Berries are dropped off here.', role: 'Food', what: 'A berry patch tended automatically.', help: 'Makes 0.55 food a second on its own, and settlers drop berries off here. Food feeds new settlers (25 each) and trains soldiers.', tip: 'Build beside berry bushes or close to the Hall to keep carry trips short.' },
   camp:     { name: 'Lumber Camp', cat: 'town', size: 1, age: 0, cost: { wood: 35 }, hp: 90, time: 3, r: 0.8, drop: ['wood'], blurb: 'Wood drop-off. Build beside a forest.', role: 'Wood drop-off', what: 'A stockpile where choppers unload their logs.', help: 'Settlers carry 8 wood a trip, so a long walk wastes most of their day. A camp beside a forest cuts the walk, and drop-offs here pay +25% over the Great Hall.', tip: 'Place it on the edge of a forest, not in the middle of your town.' },
-  quarry:   { name: 'Quarry', cat: 'town', size: 1, age: 1, cost: { wood: 50 }, hp: 120, time: 5, r: 0.8, drop: ['stone', 'gold'], blurb: 'Stone and gold drop-off. Build beside rocks.', role: 'Stone and gold drop-off', what: 'A stone yard where miners unload rock and gold.', help: 'Stone builds walls, towers and the Castle Age. Like the camp, it pays +25% on everything dropped here and saves long trips.', tip: 'Put it next to grey rocks or gold veins.' },
+  quarry:   { name: 'Quarry', cat: 'town', size: 1, age: 1, cost: { wood: 50 }, hp: 120, time: 5, r: 0.8, drop: ['stone', 'gold'], income: { stone: 0.12 }, blurb: 'Stone and gold drop-off. Build beside rocks.', role: 'Stone and gold drop-off', what: 'A stone yard where miners unload rock and gold.', help: 'Stone builds walls, towers and new ages. Like the camp, it pays +25% on everything dropped here and saves long trips, and its quarrymen dig 0.12 stone a second on their own even when the rocks are gone.', tip: 'Put it next to grey rocks or gold veins.' },
   market:   { name: 'Market', cat: 'town', size: 1, age: 1, cost: { wood: 70, stone: 20 }, hp: 120, time: 5, r: 0.8, income: { gold: 0.45 }, blurb: 'Trades goods for a trickle of gold.', role: 'Gold income', what: 'Traders pay a steady stream of gold.', help: 'Earns 0.45 gold a second with no workers needed. Gold trains Guards, Knights and Musketeers, upgrades weapons and buys new ages.', tip: 'Several markets fund a much bigger army. They are safest inside your walls.' },
   barracks: { name: 'Barracks', cat: 'army', size: 2, age: 0, cost: { wood: 80, stone: 10 }, hp: 260, time: 7, r: 1.4, blurb: 'Trains defenders. Needed for the units below.', role: 'Training', what: 'Where defenders are trained. Open the Army tab and pick a unit.', help: 'Without one you cannot train soldiers. Defenders gather on the side raiders are coming from, fight them, and level up from kills. Select them and right-click to give orders.', tip: 'Build it near the Hall. Soldiers also count against housing.' },
   smith:    { name: 'Blacksmith', cat: 'army', size: 1, age: 2, cost: { wood: 60, stone: 60 }, hp: 160, time: 6, r: 0.8, blurb: 'Sharpens every weapon in the valley.', role: 'Weapon upgrades', what: 'A forge that sharpens every weapon in the valley.', help: 'Unlocks the Sharpen Weapons upgrade in the Army tab: +20% damage per level for every defender and tower, up to three levels.', tip: 'Worth it before the boss raids at 5, 10 and 15.' },
@@ -1203,7 +1203,7 @@ function orderWork(list, target) {
   if (!workers.length) return false;
   for (const u of workers) {
     releaseWorker(u);
-    if (target.amt !== undefined) { target.workers++; u.node = target; u.pref = target.type; u.state = 'toNode'; }
+    if (target.amt !== undefined) { target.workers++; u.node = target; u.pref = target.type; u.prefUntil = G.t + 90; u.state = 'toNode'; }
     else if (!target.done) { target.builders++; u.site = target; u.state = 'toSite'; }
     else { target.repairers = (target.repairers || 0) + 1; u.rep = target; u.state = 'toRepair'; }
   }
@@ -1447,6 +1447,7 @@ function findDrop(x, z, type) {
 }
 function pickNode(u) {
   const order = RES.slice().sort((a, b) => G.res[a] / TGT[a] - G.res[b] / TGT[b]);
+  if (u.pref && (G.t > (u.prefUntil || 0) || G.res[u.pref] > TGT[u.pref] * 3)) u.pref = null;   // an order to gather something only sticks for a while, and never once that resource is plentiful
   if (u.pref) { order.splice(order.indexOf(u.pref), 1); order.unshift(u.pref); }
   for (const type of order) {
     let best = null, bs = 1e9;
@@ -1879,6 +1880,16 @@ function step(dt) {
       const p = pick(trees), i = p.i + rint(-1, 1), j = p.j + rint(-1, 1);
       if (freeGrass(i, j)) addNode('wood', i, j, 18);
     }
+  }
+  // the hills shed new boulders, berry bushes reseed and gold veins surface slowly, so no resource can run out for good
+  G.rockT = (G.rockT || 0) - dt;
+  if (G.rockT <= 0) {
+    G.rockT = 24;
+    const rocks = nodes.filter(n => n.type === 'stone').length, berries = nodes.filter(n => n.type === 'food').length, veins = nodes.filter(n => n.type === 'gold').length;
+    const spot = (pred) => { for (let k = 0; k < 40; k++) { const i = rint(3, MAP - 4), j = rint(3, MAP - 4); if (pred(i, j) && !occ[i][j] && !nodeAt[i][j] && tileDist(i, j) > 5 && reachAt(i, j)) return [i, j]; } return null; };
+    if (rocks < 26) { const s = spot((i, j) => kind[i][j] === 'h' || (kind[i][j] === 'g' && tileDist(i, j) > 12)); if (s) { addNode('stone', s[0], s[1], 40); puff(s[0], 0.4, s[1], 0xb1b7bd, 6, 1.2, 0.5, 0.1); } }
+    if (berries < 14) { const s = spot((i, j) => kind[i][j] === 'g'); if (s) addNode('food', s[0], s[1], 20); }
+    if (veins < 8 && Math.random() < 0.5) { const s = spot((i, j) => kind[i][j] === 'h' || (kind[i][j] === 'g' && tileDist(i, j) > 14)); if (s) addNode('gold', s[0], s[1], 40); }
   }
   // waves
   if (G.t >= G.nextWave) startWave();

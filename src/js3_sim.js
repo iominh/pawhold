@@ -474,7 +474,7 @@ function orderWork(list, target) {
   if (!workers.length) return false;
   for (const u of workers) {
     releaseWorker(u);
-    if (target.amt !== undefined) { target.workers++; u.node = target; u.pref = target.type; u.state = 'toNode'; }
+    if (target.amt !== undefined) { target.workers++; u.node = target; u.pref = target.type; u.prefUntil = G.t + 90; u.state = 'toNode'; }
     else if (!target.done) { target.builders++; u.site = target; u.state = 'toSite'; }
     else { target.repairers = (target.repairers || 0) + 1; u.rep = target; u.state = 'toRepair'; }
   }
@@ -718,6 +718,7 @@ function findDrop(x, z, type) {
 }
 function pickNode(u) {
   const order = RES.slice().sort((a, b) => G.res[a] / TGT[a] - G.res[b] / TGT[b]);
+  if (u.pref && (G.t > (u.prefUntil || 0) || G.res[u.pref] > TGT[u.pref] * 3)) u.pref = null;   // an order to gather something only sticks for a while, and never once that resource is plentiful
   if (u.pref) { order.splice(order.indexOf(u.pref), 1); order.unshift(u.pref); }
   for (const type of order) {
     let best = null, bs = 1e9;
@@ -1150,6 +1151,16 @@ function step(dt) {
       const p = pick(trees), i = p.i + rint(-1, 1), j = p.j + rint(-1, 1);
       if (freeGrass(i, j)) addNode('wood', i, j, 18);
     }
+  }
+  // the hills shed new boulders, berry bushes reseed and gold veins surface slowly, so no resource can run out for good
+  G.rockT = (G.rockT || 0) - dt;
+  if (G.rockT <= 0) {
+    G.rockT = 24;
+    const rocks = nodes.filter(n => n.type === 'stone').length, berries = nodes.filter(n => n.type === 'food').length, veins = nodes.filter(n => n.type === 'gold').length;
+    const spot = (pred) => { for (let k = 0; k < 40; k++) { const i = rint(3, MAP - 4), j = rint(3, MAP - 4); if (pred(i, j) && !occ[i][j] && !nodeAt[i][j] && tileDist(i, j) > 5 && reachAt(i, j)) return [i, j]; } return null; };
+    if (rocks < 26) { const s = spot((i, j) => kind[i][j] === 'h' || (kind[i][j] === 'g' && tileDist(i, j) > 12)); if (s) { addNode('stone', s[0], s[1], 40); puff(s[0], 0.4, s[1], 0xb1b7bd, 6, 1.2, 0.5, 0.1); } }
+    if (berries < 14) { const s = spot((i, j) => kind[i][j] === 'g'); if (s) addNode('food', s[0], s[1], 20); }
+    if (veins < 8 && Math.random() < 0.5) { const s = spot((i, j) => kind[i][j] === 'h' || (kind[i][j] === 'g' && tileDist(i, j) > 14)); if (s) addNode('gold', s[0], s[1], 40); }
   }
   // waves
   if (G.t >= G.nextWave) startWave();
