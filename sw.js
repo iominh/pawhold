@@ -1,6 +1,6 @@
 /* Pawhold service worker: precaches the game so it installs and runs offline.
    VERSION changes with every build, which refreshes the cache. */
-const VERSION = 'ce754baafd';
+const VERSION = '09d59e1560';
 const CACHE = 'pawhold-' + VERSION;
 const CORE = ['./', 'index.html', 'game.js', 'vendor/three.min.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png'];
 

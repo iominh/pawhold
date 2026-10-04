@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.2.0', GAME_BUILD = '7652d19';
+const GAME_VERSION = '1.2.1', GAME_BUILD = '9e6f56a';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 15;
@@ -2213,7 +2213,9 @@ function panBy(dx, dy) {
   cam.tx += -cy * dx * k + (-sy) * dy * k;
   cam.tz += sy * dx * k + (-cy) * dy * k;
 }
+const panVel = { x: 0, y: 0 };
 function panKeys(dt) {
+  if (!pts.size && (Math.abs(panVel.x) > 8 || Math.abs(panVel.y) > 8)) { panBy(panVel.x * dt, panVel.y * dt); const f = Math.exp(-4.5 * dt); panVel.x *= f; panVel.y *= f; }
   const sp = cam.dist * 0.9 * dt, sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
   let fx = 0, rx = 0;
   if (keys.w || keys.arrowup) fx += 1; if (keys.s || keys.arrowdown) fx -= 1;
@@ -2571,7 +2573,7 @@ function contextOrder(cx, cy) {
 }
 function leftClick(cx, cy, e) {
   const touch = e.pointerType === 'touch' || e.pointerType === 'pen';
-  const mine = unitAtScreen(units, cx, cy, 26);
+  const R = touch ? 48 : 26, mine = unitAtScreen(units, cx, cy, R);
   if (mine) {
     const now = performance.now();
     if (lastClick.u === mine && now - lastClick.t < 380) selectUnits(units.filter(u => !u.dead && u.role === mine.role && Math.hypot(screenOf(u)[0] - screenOf(mine)[0], screenOf(u)[1] - screenOf(mine)[1]) < 900), false);
@@ -2587,7 +2589,7 @@ function leftClick(cx, cy, e) {
     contextOrder(cx, cy); return;
   }
   if (G.selU.length && G.cmd) { const p = groundPoint(cx, cy); if (p) { const us = G.selU; orderMove(us, p.x, p.z, G.cmd === 'amove'); G.cmd = null; infoSig = ''; } return; }
-  const foe = G.selU.length && unitAtScreen(enemies, cx, cy, 26);
+  const foe = G.selU.length && unitAtScreen(enemies, cx, cy, touch ? 48 : 26);
   if (foe) { orderAttack(G.selU, foe); return; }
   const t = tileAt(cx, cy);
   G.selU = []; G.cmd = null;
@@ -2611,7 +2613,8 @@ canvasEl.addEventListener('pointerdown', e => {
   hideTip(); tipHold = 0;
   pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pts.size === 1) {
-    down = { x: e.clientX, y: e.clientY, btn: e.button, moved: false };
+    down = { x: e.clientX, y: e.clientY, btn: e.button, moved: false, touch: e.pointerType === 'touch' || e.pointerType === 'pen', t: e.timeStamp };
+    panVel.x = panVel.y = 0;
     painted = false;
     const def = G.build && BDEF[G.build];
     if (def && def.wall && e.button === 0 && !G.over) { painting = true; lastPaint = ''; paint(e.clientX, e.clientY); }
@@ -2625,7 +2628,7 @@ canvasEl.addEventListener('pointermove', e => {
     const dx = e.clientX - p.x, dy = e.clientY - p.y;
     p.x = e.clientX; p.y = e.clientY;
     if (pts.size === 1 && down) {
-      if (!down.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) down.moved = true;
+      if (!down.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) > (down.touch ? 14 : 6)) down.moved = true;
       if (painting) paint(e.clientX, e.clientY);
       else if (marq) {
         if (down.moved) {
@@ -2635,12 +2638,13 @@ canvasEl.addEventListener('pointermove', e => {
       }
       else if (down.moved) {
         if (down.btn === 2) { cam.yaw -= dx * 0.006; cam.pitch += dy * 0.004; }
-        else panBy(dx, dy);
+        else { panBy(dx, dy); const dts = Math.max(8, e.timeStamp - (down.lt || down.t)) / 1000; down.lt = e.timeStamp; panVel.x = panVel.x * 0.5 + (dx / dts) * 0.5; panVel.y = panVel.y * 0.5 + (dy / dts) * 0.5; }
       }
     } else if (pts.size === 2) {
       const a = [...pts.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), ang = Math.atan2(a[1].y - a[0].y, a[1].x - a[0].x);
-      if (pinch) { cam.dist *= pinch.d / d; cam.yaw -= Math.atan2(Math.sin(ang - pinch.a), Math.cos(ang - pinch.a)); }
-      pinch = { d, a: ang };
+      const mx = (a[0].x + a[1].x) / 2, my = (a[0].y + a[1].y) / 2;
+      if (pinch) { panBy(mx - pinch.mx, my - pinch.my); cam.dist *= pinch.d / d; cam.yaw -= Math.atan2(Math.sin(ang - pinch.a), Math.cos(ang - pinch.a)); }
+      pinch = { d, a: ang, mx, my };
     }
   } else if (e.pointerType === 'mouse') hoverScene(e.clientX, e.clientY);
   updateGhost(e.clientX, e.clientY);
@@ -2685,6 +2689,7 @@ function tipUnitLive(u) {
 function endPointer(e, cancelled) {
   const wasOne = pts.size === 1;
   pts.delete(e.pointerId); pinch = null;
+  if (!(wasOne && down && down.touch && down.moved && !cancelled && !painting && !marq) || (e.timeStamp - (down.lt || 0)) > 160) { panVel.x = panVel.y = 0; }
   if (marq && wasOne) {
     marqEl.style.display = 'none';
     if (down && down.moved && !cancelled) {
@@ -2708,6 +2713,9 @@ function endPointer(e, cancelled) {
 }
 canvasEl.addEventListener('pointerup', e => endPointer(e, false));
 canvasEl.addEventListener('pointercancel', e => endPointer(e, true));
+const zoomBy = f => { cam.dist *= f; panVel.x = panVel.y = 0; };
+$('zoomIn').addEventListener('click', () => zoomBy(0.78));
+$('zoomOut').addEventListener('click', () => zoomBy(1.28));
 canvasEl.addEventListener('wheel', e => { e.preventDefault(); cam.dist *= Math.exp(e.deltaY * 0.001); }, { passive: false });
 window.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();

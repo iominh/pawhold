@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.1
+- Mobile: bigger tap area for selecting animals, more forgiving tap versus drag detection, momentum when you flick-pan, two-finger drag to pan while pinching, and on-screen + / - zoom buttons.
+
 ## 1.2.0
 - Technology: three new researchable upgrades in the Army tab. Tempered Armor (+15% defender health per level), Crop Rotation (+25% farm food per level) and Sturdy Tools (settlers carry +2 per level).
 - Unit advancement: any animal that reaches level 5 can be promoted to Elite (+35% health, +30% damage, gold crown badge). Elite settlers carry 3 more.

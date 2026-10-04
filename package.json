@@ -1,6 +1,6 @@
 {
   "name": "pawhold",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "A voxel medieval city-builder where animals raise a town and defend it through the ages.",
   "private": true,
   "scripts": {
