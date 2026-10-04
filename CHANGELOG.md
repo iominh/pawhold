@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.2
+- Freeze guard: any animal that wants to be somewhere but has not moved for 6 seconds is reset on the spot (job released, path and bans cleared, nudged to a free tile) with a small puff, whatever the cause. Each reset is logged.
+- Diagnostics in the Menu: version, frame rate, what every animal is doing, how many freeze resets happened and why, with a Copy button to send to the developer.
+- Fix: Elite animals kept their larger size for only one frame.
+
 ## 1.7.1
 - Update hint (installed app and website): when a new build has been fetched behind the running game, a bar offers "Reload now" (the game autosaves first) or "Later", naming the new version. The app checks for updates on load, whenever you return to it and every 20 minutes. A live version.json is published with each build.
 

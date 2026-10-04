@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.7.1', GAME_BUILD = '2b154c0';
+const GAME_VERSION = '1.7.2', GAME_BUILD = '0969af4';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 15;
@@ -1057,6 +1057,36 @@ function unstick(u) {
   if (u.role === 'worker' && u.nudges >= 2) { if (u.node) { u.badNode = u.node; u.badUntil = G.t + 30; } releaseWorker(u); u.state = 'idle'; u.wait = 0.5; u.nudges = 0; }
   if (u.role !== 'worker' && u.team === 0) { u.tgt = null; u.giveUp = G.t + 3; if (u.order && u.order.type === 'move') u.order = null; }
 }
+/* Last line of defence: any animal that wants to be somewhere but has not moved for 6 seconds is reset
+   (jobs released, path and bans cleared, nudged to a free spot) and the event is logged for the Menu's diagnostics. */
+const DIAG = { kicks: 0, log: [], t: 0 };
+const MOVING_STATES = { toNode: 1, toDrop: 1, toSite: 1, toRepair: 1, toFarm: 1, goto: 1, flee: 1 };
+function wantsToMove(u) {
+  if (u.role === 'worker') return !!MOVING_STATES[u.state];
+  if (u.order) return true;
+  if (u.hold || u.tgt || u.giveUp > G.t) return false;
+  const sp = u.home || rallyPos(u.slot);
+  return Math.hypot(sp[0] - u.x, sp[1] - u.z) > 1.2;
+}
+function freezeGuard(dt) {
+  DIAG.t -= dt; if (DIAG.t > 0) return; DIAG.t = 0.5;
+  for (const u of units) {
+    if (u.dead) continue;
+    if (!wantsToMove(u)) { u.fzT = undefined; continue; }
+    if (u.fzT === undefined || Math.hypot(u.x - u.fzX, u.z - u.fzZ) > 0.4) { u.fzT = G.t; u.fzX = u.x; u.fzZ = u.z; continue; }
+    if (G.t - u.fzT < 6) continue;
+    const i = Math.round(u.x), j = Math.round(u.z);
+    const why = { t: Math.round(G.t), role: u.role, state: u.state, order: u.order && u.order.type, path: !!u.path, pi: u.pi, unreach: !!u.unreach, stuckT: +(u.stuckT || 0).toFixed(1), noLos: u.noLos > G.t, blockedHere: !!blockedAt(u.x, u.z, 0, null), reachHere: reachAt(i, j), tile: kind[i] && kind[i][j], occ: !!(occ[i] && occ[i][j]), near: units.filter(o => !o.dead && o !== u && Math.hypot(o.x - u.x, o.z - u.z) < 0.8).length, v: GAME_VERSION };
+    DIAG.kicks++; DIAG.log.push(why); if (DIAG.log.length > 12) DIAG.log.shift();
+    // reset everything that could be holding it
+    releaseWorker(u); u.state = 'idle'; u.wait = 0; u.wp = null; u.order = null; u.tgt = null; u.path = null; u.unreach = false; u.stuckT = 0; u.repathT = 0; u.noLos = 0; u.badNode = null; u.badSite = null; u.badUntil = 0; u.nudges = 0; u.fleeTo = null; u.brave = G.t + 4;
+    if (u.role !== 'worker') { u.giveUp = G.t + 1; if (u.home && Math.hypot(u.home[0] - u.x, u.home[1] - u.z) > 1.2) u.home = null; }
+    if (!reachAt(i, j)) escapePocket(u);
+    else { const sp = validSpot(u.x + rnd(-1.5, 1.5), u.z + rnd(-1.5, 1.5)); u.x = sp[0]; u.z = sp[1]; }
+    u.fzT = undefined;
+    puff(u.x, u.y + 0.6, u.z, 0xffffff, 4, 1, 0.4, 0.07);
+  }
+}
 function watchdog(u, dt) {
   if (u.team === 0 && !reachAt(Math.round(u.x), Math.round(u.z))) { escapePocket(u); u.wdT = 0; return; }
   if (blockedAt(u.x, u.z, u.team === 0 ? 0 : 1, null) === true || (u.team === 0 && blockedAt(u.x, u.z, 0, null))) {   // standing inside a building or cliff: step out to the nearest free spot
@@ -1285,7 +1315,7 @@ function animateUnit(u, dt) {
   const bob = u.moved ? Math.abs(Math.sin(u.walk)) * 0.05 : (u.state === 'gather' || u.state === 'build') ? Math.abs(Math.sin(G.t * 9)) * 0.07 : 0;
   m.position.y = u.y + bob;
   if (u.atk > 0) { u.atk -= dt; ud.body.position.z = Math.sin(clamp(u.atk / 0.25, 0, 1) * Math.PI) * 0.18; } else ud.body.position.z = 0;
-  if (u.hitT > 0) { u.hitT -= dt; m.scale.set(1 + u.hitT, 1 - u.hitT * 1.4, 1 + u.hitT); } else m.scale.set(1, 1, 1);
+  { const es = u.elite ? 1.12 : 1; if (u.hitT > 0) { u.hitT -= dt; m.scale.set(es * (1 + u.hitT), es * (1 - u.hitT * 1.4), es * (1 + u.hitT)); } else m.scale.set(es, es, es); }
   u.moved = false;
 }
 
@@ -1711,7 +1741,6 @@ function promoteUnits(us) {
     if (!afford(PROMO_COST)) { if (!n) toast('Not enough resources to promote', true); break; }
     pay(PROMO_COST); u.elite = true; n++;
     applyStats(u); u.hp = u.maxhp; dropBar(u); setBadge(u);
-    u.model.scale.multiplyScalar(1.12);
     puff(u.x, u.y + 0.9, u.z, 0xffe27a, 14, 2, 0.8, 0.15); sfx('age', u.x, u.z);
   }
   if (n) toast(`${n} ${n > 1 ? 'animals' : el[0].name} promoted to Elite: +35% health, +30% damage`);
@@ -1776,6 +1805,7 @@ function step(dt) {
   for (const u of units) if (!u.dead) { if (u.role === 'worker') updateWorker(u, dt); else updateSoldier(u, dt); }
   for (const e of enemies) if (!e.dead) updateEnemy(e, dt);
   for (const o of units) if (!o.dead) watchdog(o, dt);
+  freezeGuard(dt);
   for (const e of enemies) if (!e.dead) watchdog(e, dt);
   healSystem(dt);
   if (G.selU.length) G.selU = G.selU.filter(u => !u.dead);
@@ -3093,7 +3123,7 @@ function applySnapshot(s) {
   for (const su of s.units) {
     const u = makeUnit(su.role, su.x, su.z, su.sp);
     u.name = su.name || u.name; u.trait = su.trait; u.lvl = su.lvl || 1; u.xp = su.xp || 0;
-    u.elite = !!su.elite; if (u.elite) u.model.scale.multiplyScalar(1.12);
+    u.elite = !!su.elite;
     u.maxhp = 0; applyStats(u);
     u.hp = Math.min(su.hp, u.maxhp); u.carry = su.carry || 0; u.carryType = su.carryType || null; u.slot = su.slot || 0; u.home = su.home || null; u.hold = !!su.hold;
     setBadge(u);
@@ -3215,9 +3245,16 @@ function renderSaveModal() {
   }
   $('storeNote').style.display = storageOK ? 'none' : 'block';
 }
+function diagReport() {
+  const w = units.filter(u => !u.dead && u.role === 'worker'), s = units.filter(u => !u.dead && u.role !== 'worker');
+  const st = {}; for (const u of units) if (!u.dead) { const k = u.role === 'worker' ? u.state : (u.order ? u.order.type : u.hold ? 'hold' : u.tgt ? 'fighting' : 'guard'); st[k] = (st[k] || 0) + 1; }
+  return { version: GAME_VERSION, build: GAME_BUILD, t: Math.round(G.t), wave: G.wave, diff: G.diff, settlers: w.length, defenders: s.length, raiders: enemies.filter(e => !e.dead).length, states: st, frozenResets: DIAG.kicks, recent: DIAG.log, fps: Math.round(1000 / Math.max(1, QUALITY.ema)), pixelRatio: QUALITY.pr, ua: navigator.userAgent.slice(0, 80) };
+}
+$('diagCopy').addEventListener('click', () => { const txt = JSON.stringify(diagReport(), null, 1); const done = () => toast('Diagnostics copied. Paste them to the developer'); if (navigator.clipboard) navigator.clipboard.writeText(txt).then(done, () => { $('diagText').textContent = txt; }); else $('diagText').textContent = txt; });
 function openSaveModal() {
   modalWasPaused = G.paused; G.paused = true;
   modalEl.classList.add('on'); renderSaveModal();
+  { const d = diagReport(); $('diagText').textContent = `v${d.version} (${d.build}) · ${d.fps} fps · ${d.settlers} settlers, ${d.defenders} defenders, ${d.raiders} raiders · frozen animals reset: ${d.frozenResets}\n` + Object.entries(d.states).map(([k, v]) => `${k}: ${v}`).join(', '); }
 }
 function closeSaveModal(loaded) {
   modalEl.classList.remove('on');

@@ -43,7 +43,7 @@ function applySnapshot(s) {
   for (const su of s.units) {
     const u = makeUnit(su.role, su.x, su.z, su.sp);
     u.name = su.name || u.name; u.trait = su.trait; u.lvl = su.lvl || 1; u.xp = su.xp || 0;
-    u.elite = !!su.elite; if (u.elite) u.model.scale.multiplyScalar(1.12);
+    u.elite = !!su.elite;
     u.maxhp = 0; applyStats(u);
     u.hp = Math.min(su.hp, u.maxhp); u.carry = su.carry || 0; u.carryType = su.carryType || null; u.slot = su.slot || 0; u.home = su.home || null; u.hold = !!su.hold;
     setBadge(u);
@@ -165,9 +165,16 @@ function renderSaveModal() {
   }
   $('storeNote').style.display = storageOK ? 'none' : 'block';
 }
+function diagReport() {
+  const w = units.filter(u => !u.dead && u.role === 'worker'), s = units.filter(u => !u.dead && u.role !== 'worker');
+  const st = {}; for (const u of units) if (!u.dead) { const k = u.role === 'worker' ? u.state : (u.order ? u.order.type : u.hold ? 'hold' : u.tgt ? 'fighting' : 'guard'); st[k] = (st[k] || 0) + 1; }
+  return { version: GAME_VERSION, build: GAME_BUILD, t: Math.round(G.t), wave: G.wave, diff: G.diff, settlers: w.length, defenders: s.length, raiders: enemies.filter(e => !e.dead).length, states: st, frozenResets: DIAG.kicks, recent: DIAG.log, fps: Math.round(1000 / Math.max(1, QUALITY.ema)), pixelRatio: QUALITY.pr, ua: navigator.userAgent.slice(0, 80) };
+}
+$('diagCopy').addEventListener('click', () => { const txt = JSON.stringify(diagReport(), null, 1); const done = () => toast('Diagnostics copied. Paste them to the developer'); if (navigator.clipboard) navigator.clipboard.writeText(txt).then(done, () => { $('diagText').textContent = txt; }); else $('diagText').textContent = txt; });
 function openSaveModal() {
   modalWasPaused = G.paused; G.paused = true;
   modalEl.classList.add('on'); renderSaveModal();
+  { const d = diagReport(); $('diagText').textContent = `v${d.version} (${d.build}) · ${d.fps} fps · ${d.settlers} settlers, ${d.defenders} defenders, ${d.raiders} raiders · frozen animals reset: ${d.frozenResets}\n` + Object.entries(d.states).map(([k, v]) => `${k}: ${v}`).join(', '); }
 }
 function closeSaveModal(loaded) {
   modalEl.classList.remove('on');
