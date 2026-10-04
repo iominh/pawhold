@@ -50,14 +50,14 @@ function tipBuilding(def, extra, locked) {
   if (def.range) st.push(`Range ${def.range}`, `Damage ${def.dmg}${def.splash ? ' (area)' : ''}`);
   if (def.heal) st.push(`Heals within ${def.heal} tiles`);
   if (def.drop) st.push(`Drop-off: ${def.drop.join(', ')}`);
-  return `<b>${def.name}</b><i class="role">${def.role || ''}</i><p>${def.what || def.blurb || ''}</p>` +
+  return `<b>${def.name}</b><i class="role">${def.role || ''}</i><p class="what">${def.what || def.blurb || ''}</p>` +
     (def.help ? `<p class="help"><strong>How it helps:</strong> ${def.help}</p>` : '') +
     (def.tip ? `<p class="tipx">${def.tip}</p>` : '') + statsRow(st) + (locked ? `<p class="lockn">${locked}</p>` : '') + (extra || '');
 }
 function tipUnitDef(def) {
   const st = [`HP ${def.hp}`, `Damage ${def.dmg}`, `Range ${def.range}`];
   const ab = ABIL[Object.keys(UDEF).find(k => UDEF[k] === def)];
-  return `<b>${def.name}</b><i class="role">${def.role}</i><p>${def.what}</p><p class="help"><strong>How it helps:</strong> ${def.help}</p>` +
+  return `<b>${def.name}</b><i class="role">${def.role}</i><p class="what">${def.what}</p><p class="help"><strong>How it helps:</strong> ${def.help}</p>` +
     (def.tip ? `<p class="tipx">${def.tip}</p>` : '') + statsRow(st) + (ab ? `<p class="tipx">Level 3 ability: ${ab.name}. ${ab.desc}</p>` : '');
 }
 function placeTip(x, y, above) {
@@ -92,13 +92,13 @@ function renderDock() {
     el.addEventListener('click', () => onCard(it));
     const showCard = () => {
       const d = it.def, r = el.getBoundingClientRect(), locked = d.age !== undefined && G.age < d.age ? `Unlocks in the ${AGES[d.age].name}` : '';
-      const html = it.kindOf === 'u' ? tipUnitDef(d) : it.kindOf === 'x' ? `<b>${d.name}</b><i class="role">${d.role}</i><p>${d.what}</p><p class="help"><strong>How it helps:</strong> ${d.help}</p><p class="tipx">${d.tip}</p>${locked ? `<p class="lockn">${locked}</p>` : ''}` : tipBuilding(d, '', locked);
+      const html = it.kindOf === 'u' ? tipUnitDef(d) : it.kindOf === 'x' ? `<b>${d.name}</b><i class="role">${d.role}</i><p class="what">${d.what}</p><p class="help"><strong>How it helps:</strong> ${d.help}</p><p class="tipx">${d.tip}</p>${locked ? `<p class="lockn">${locked}</p>` : ''}` : tipBuilding(d, '', locked);
       showTip(html, r.left, r.top - (document.documentElement.clientWidth <= 640 ? 0 : 0), true);
     };
     const hoverCard = () => { if (window.matchMedia && matchMedia('(hover: none)').matches) return; showCard(); };
     el.addEventListener('mouseenter', hoverCard); el.addEventListener('focus', hoverCard);
     el.addEventListener('mouseleave', hideTip); el.addEventListener('blur', hideTip);
-    el.addEventListener('contextmenu', e => { e.preventDefault(); showCard(); tipHold = 3.5; });
+    el.addEventListener('contextmenu', e => { e.preventDefault(); showCard(); tipHold = performance.now() + (document.documentElement.clientWidth <= 640 ? 2500 : 3500); });
     box2.appendChild(el);
     return { el, it, sig: '' };
   });
@@ -396,9 +396,10 @@ function paint(cx, cy) {
 }
 const marqEl = $('marquee');
 canvasEl.addEventListener('contextmenu', e => e.preventDefault());
+$('infoHelp').addEventListener('click', () => $('info').classList.toggle('more'));
 canvasEl.addEventListener('pointerdown', e => {
   try { canvasEl.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
-  hideTip();
+  hideTip(); tipHold = 0;
   pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pts.size === 1) {
     down = { x: e.clientX, y: e.clientY, btn: e.button, moved: false };
@@ -442,7 +443,7 @@ function hoverScene(cx, cy) {
   const now = performance.now();
   if (now - hoverT < 70) return;
   hoverT = now;
-  if (G.build || pts.size || tipHold > 0) { if (G.build) hideTip(); return; }
+  if (G.build || pts.size || (tipHold && performance.now() < tipHold)) { if (G.build) hideTip(); return; }
   const r = canvasEl.getBoundingClientRect();
   ndc.set((cx - r.left) / r.width * 2 - 1, -((cy - r.top) / r.height * 2 - 1));
   ray.setFromCamera(ndc, camera);
@@ -555,7 +556,7 @@ function frame(now) {
   const adt = G.paused ? 0 : dt * G.speed;
   panKeys(dt); applyCam();
   updateEnv(dt, now); audioUpdate(dt);
-  if (tipHold > 0) { tipHold -= dt; if (tipHold <= 0) hideTip(); }
+  if (tipHold && now > tipHold) { tipHold = 0; hideTip(); }
   for (const u of units) if (!u.dead) animateUnit(u, adt);
   for (const e of enemies) if (!e.dead) animateUnit(e, adt);
   for (const b of buildings) {
