@@ -82,13 +82,14 @@ function renderDock() {
   if (curTab === 'army') {
     for (const k in UDEF) if (k !== 'worker') list.push({ kindOf: 'u', id: k, def: UDEF[k] });
     list.push({ kindOf: 'x', id: 'smith', def: { name: 'Sharpen Weapons', cost: SMITH_COST[0], age: 2, blurb: 'Every defender and tower hits 20% harder per level.', role: 'Weapon upgrade', what: 'Pays the smiths to sharpen every weapon in the valley.', help: 'Each level adds +20% damage to every defender and every tower, up to three levels. Needs a finished Blacksmith.', tip: 'Worth buying before the boss raids at 5, 10 and 15.', hp: 0 } });
+    for (const t of TECHS) list.push({ kindOf: 'x', id: t.id, def: { name: t.name, cost: t.cost[0], age: t.age, blurb: t.what, role: t.role, what: t.what, help: t.help, tip: t.tip, hp: 0 } });
   }
   const box2 = $('cards');
   box2.innerHTML = '';
   cards = list.map(it => {
     const el = document.createElement('button');
     el.className = 'card';
-    el.innerHTML = `<div class="ic">${it.kindOf === 'u' ? unitIconSVG(it.def.sp) : it.kindOf === 'x' ? iconSVG('smith') : iconSVG(it.id)}</div><div class="nm">${it.def.name}</div><div class="cs">${costHTML(it.def.cost)}</div><span class="lk"></span>`;
+    el.innerHTML = `<div class="ic">${it.kindOf === 'u' ? unitIconSVG(it.def.sp) : it.kindOf === 'x' ? iconSVG(it.id === 'farm' ? 'farm' : it.id === 'tools' ? 'camp' : 'smith') : iconSVG(it.id)}</div><div class="nm">${it.def.name}</div><div class="cs">${costHTML(it.def.cost)}</div><span class="lk"></span>`;
     el.addEventListener('click', () => onCard(it));
     const showCard = () => {
       const d = it.def, r = el.getBoundingClientRect(), locked = d.age !== undefined && G.age < d.age ? `Unlocks in the ${AGES[d.age].name}` : '';
@@ -112,14 +113,18 @@ function onCard(it) {
     G.build = G.build === it.id ? null : it.id; G.sel = null; G.selU = []; G.cmd = null; sfx('click');
     if (G.build) toast(d.wall ? `${d.name}: click or drag to build` : `${d.name}: click the ground to build`);
   } else if (it.kindOf === 'u') { trainUnit(it.id); }
-  else upgradeSmith();
+  else if (it.id === 'smith') upgradeSmith();
+  else researchTech(it.id);
   updateDock(true);
 }
 function updateDock(force) {
   for (const c of cards) {
     const d = c.it.def;
     let cost = d.cost, lock = '', sel = false;
-    if (c.it.kindOf === 'x') { cost = SMITH_COST[Math.min(G.smith, 2)]; lock = G.smith >= 3 ? 'Max' : `Lv ${G.smith + 1}`; }
+    if (c.it.kindOf === 'x') {
+      if (c.it.id === 'smith') { cost = SMITH_COST[Math.min(G.smith, 2)]; lock = G.smith >= 3 ? 'Max' : `Lv ${G.smith + 1}`; }
+      else { const t = TECHS.find(x => x.id === c.it.id), lv = G.tech[t.id]; cost = t.cost[Math.min(lv, t.max - 1)]; lock = lv >= t.max ? 'Max' : `Lv ${lv + 1}`; }
+    }
     if (d.age !== undefined && G.age < d.age) lock = AGES[d.age].name.split(' ')[0];
     if (c.it.kindOf === 'b') sel = G.build === c.it.id;
     const poor = Object.keys(cost).map(k => (G.res[k] >= cost[k] ? 1 : 0)).join('');
@@ -230,8 +235,8 @@ function updateUnitInfo(el, us) {
   const one = us.length === 1 ? us[0] : null, soldiers = us.filter(u => u.role !== 'worker'), workers = us.length - soldiers.length;
   const ready = us.filter(canAbility), cd = Math.ceil(Math.min(...soldiers.filter(u => u.lvl >= 3).map(u => Math.max(0, u.abCd)), 99));
   if (one) {
-    $('infoTitle').textContent = `${one.name} the ${one.def.name}`;
-    $('infoRole').textContent = `Level ${one.lvl}${one.trait ? ' · ' + TRAITS[one.trait] : ''}`;
+    $('infoTitle').textContent = `${one.name} the ${one.elite ? 'Elite ' : ''}${one.def.name}`;
+    $('infoRole').textContent = `${one.elite ? 'Elite · ' : ''}Level ${one.lvl}${one.trait ? ' · ' + TRAITS[one.trait] : ''}`;
     $('infoHp').style.width = clamp(one.hp / one.maxhp * 100, 0, 100) + '%';
     $('infoXpBox').style.display = '';
     $('infoXp').style.width = (one.lvl >= MAXLVL ? 100 : clamp(one.xp / xpNeed(one.lvl) * 100, 0, 100)) + '%';
@@ -239,7 +244,7 @@ function updateUnitInfo(el, us) {
     $('infoText').textContent = `${Math.ceil(one.hp)} / ${one.maxhp} hp.${dmg} ${orderState(one)}.` + (one.lvl < MAXLVL ? ` XP ${one.xp} / ${xpNeed(one.lvl)}.` : ' Max level.');
     const ab = ABIL[one.role];
     $('infoHelp').textContent = one.role === 'worker'
-      ? `Levels up by working: carries ${8 + (one.lvl >> 1)} per trip and works ${Math.round(7 * (one.lvl - 1))}% faster. Right-click a tree, rock, site or damaged building to send it there.`
+      ? `Levels up by working: carries ${carryCap(one)} per trip and works ${Math.round(7 * (one.lvl - 1))}% faster. Right-click a tree, rock, site or damaged building to send it there.${one.elite ? '' : ` Reach level ${PROMO_LVL} to promote it to Elite.`}`
       : ab ? (one.lvl >= 3 ? `${ab.name}: ${ab.desc} ${one.abCd > 0 ? `Ready in ${Math.ceil(one.abCd)}s.` : 'Ready.'}` : `Learns ${ab.name} at level 3: ${ab.desc}`) : '';
   } else {
     $('infoTitle').textContent = `${us.length} animals`;
@@ -250,7 +255,7 @@ function updateUnitInfo(el, us) {
     $('infoText').textContent = `Average level ${(us.reduce((s2, u) => s2 + u.lvl, 0) / us.length).toFixed(1)}.`;
     $('infoHelp').textContent = 'Right-click the ground to move, an enemy to attack, or a tree, rock or damaged building to send settlers to work.';
   }
-  const sig = ['u', us.map(u => u.id || (u.id = bid++)).join(), G.cmd, ready.length, cd, soldiers.some(u => u.hold)].join('|');
+  const sig = ['u', us.map(u => u.id || (u.id = bid++)).join(), G.cmd, ready.length, cd, soldiers.some(u => u.hold), us.filter(canPromote).length, afford(PROMO_COST)].join('|');
   if (sig === infoSig) return;
   infoSig = sig;
   const row = $('infoBtns');
@@ -262,8 +267,12 @@ function updateUnitInfo(el, us) {
     if (soldiers.some(u => u.lvl >= 3)) row.appendChild(sumBtn(ready.length ? 'Ability (F)' : `Ability ${cd}s`, () => castAbilities(), 'go', !ready.length));
   }
   row.appendChild(sumBtn(soldiers.length ? 'Stop / Return' : 'Back to work', () => { orderStop(us, true); G.cmd = null; }));
+  const promo = us.filter(canPromote);
+  if (promo.length) row.appendChild(sumBtn(promo.length > 1 ? `Promote ${promo.length}` : 'Promote to Elite', () => promoteUnits(us), 'go', !afford(PROMO_COST)));
   row.appendChild(sumBtn('Deselect', () => { G.selU = []; G.cmd = null; }));
 }
+function deselectAll() { G.sel = null; G.selU = []; G.cmd = null; infoSig = ''; sfx('click'); }
+$('infoClose').addEventListener('click', deselectAll);
 function castAbilities() { let n = 0; for (const u of G.selU) if (useAbility(u)) n++; if (!n) toast('No ability ready or no raiders in reach', true); }
 let hintedMove = false;
 function selectUnits(list, add) {
@@ -368,6 +377,7 @@ function leftClick(cx, cy, e) {
     const now = performance.now();
     if (lastClick.u === mine && now - lastClick.t < 380) selectUnits(units.filter(u => !u.dead && u.role === mine.role && Math.hypot(screenOf(u)[0] - screenOf(mine)[0], screenOf(u)[1] - screenOf(mine)[1]) < 900), false);
     else if (e.shiftKey && G.selU.includes(mine)) { G.selU = G.selU.filter(u => u !== mine); infoSig = ''; }
+    else if (touch && G.selU.length === 1 && G.selU[0] === mine && now - lastClick.t > 380) { deselectAll(); lastClick = { t: now, u: null }; return; }
     else selectUnits([mine], e.shiftKey);
     lastClick = { t: now, u: mine };
     return;

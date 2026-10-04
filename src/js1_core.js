@@ -48,6 +48,13 @@ const EDEF = {
   badger:  { name: 'Badger Ram', sp: 'badger', hp: 170, speed: 1.3, dmg: 26, rate: 1.4, range: 1.1, bounty: 12, siege: true, scale: 1.1 },
   chief:   { name: 'Bear Warlord', sp: 'warbear', hp: 700, speed: 1.5, dmg: 30, rate: 1.3, range: 1.6, bounty: 90, scale: 1.7 }
 };
+const TECHS = [
+  { id: 'armor', name: 'Tempered Armor', age: 2, need: 'smith', max: 3, cost: [{ wood: 40, stone: 60, gold: 60 }, { stone: 120, gold: 130 }, { stone: 200, gold: 250 }], role: 'Armor upgrade', what: 'Smiths forge sturdier armor for the whole clan.', help: 'Each level adds +15% health to every defender, and it applies to the ones you already have. Needs a finished Blacksmith.', tip: 'Pairs well with Sharpen Weapons.' },
+  { id: 'farm', name: 'Crop Rotation', age: 1, need: null, max: 2, cost: [{ wood: 60, food: 60 }, { wood: 120, food: 140, gold: 40 }], role: 'Farming tech', what: 'Better planting means bigger harvests.', help: 'Each level makes every Berry Farm produce +25% more food, all year round.', tip: 'Cheap, and it pays off quickly with several farms.' },
+  { id: 'tools', name: 'Sturdy Tools', age: 1, need: null, max: 2, cost: [{ wood: 70, stone: 30 }, { wood: 140, stone: 90, gold: 40 }], role: 'Gathering tech', what: 'Better axes, picks and baskets for every settler.', help: 'Each level lets settlers carry 2 more per trip, so fewer walks back to the drop-off.', tip: 'Best when your drop-offs are a long way from the trees.' }
+];
+const PROMO_COST = { food: 40, gold: 45 };
+const PROMO_LVL = 5;
 const SMITH_COST = [{ gold: 80, stone: 40 }, { gold: 160, stone: 90 }, { gold: 300, stone: 150 }];
 
 /* ===================== renderer, scene, light ===================== */

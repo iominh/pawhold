@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.1.1', GAME_BUILD = '731ef4d';
+const GAME_VERSION = '1.2.0', GAME_BUILD = '7652d19';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 15;
@@ -49,6 +49,13 @@ const EDEF = {
   badger:  { name: 'Badger Ram', sp: 'badger', hp: 170, speed: 1.3, dmg: 26, rate: 1.4, range: 1.1, bounty: 12, siege: true, scale: 1.1 },
   chief:   { name: 'Bear Warlord', sp: 'warbear', hp: 700, speed: 1.5, dmg: 30, rate: 1.3, range: 1.6, bounty: 90, scale: 1.7 }
 };
+const TECHS = [
+  { id: 'armor', name: 'Tempered Armor', age: 2, need: 'smith', max: 3, cost: [{ wood: 40, stone: 60, gold: 60 }, { stone: 120, gold: 130 }, { stone: 200, gold: 250 }], role: 'Armor upgrade', what: 'Smiths forge sturdier armor for the whole clan.', help: 'Each level adds +15% health to every defender, and it applies to the ones you already have. Needs a finished Blacksmith.', tip: 'Pairs well with Sharpen Weapons.' },
+  { id: 'farm', name: 'Crop Rotation', age: 1, need: null, max: 2, cost: [{ wood: 60, food: 60 }, { wood: 120, food: 140, gold: 40 }], role: 'Farming tech', what: 'Better planting means bigger harvests.', help: 'Each level makes every Berry Farm produce +25% more food, all year round.', tip: 'Cheap, and it pays off quickly with several farms.' },
+  { id: 'tools', name: 'Sturdy Tools', age: 1, need: null, max: 2, cost: [{ wood: 70, stone: 30 }, { wood: 140, stone: 90, gold: 40 }], role: 'Gathering tech', what: 'Better axes, picks and baskets for every settler.', help: 'Each level lets settlers carry 2 more per trip, so fewer walks back to the drop-off.', tip: 'Best when your drop-offs are a long way from the trees.' }
+];
+const PROMO_COST = { food: 40, gold: 45 };
+const PROMO_LVL = 5;
 const SMITH_COST = [{ gold: 80, stone: 40 }, { gold: 160, stone: 90 }, { gold: 300, stone: 150 }];
 
 /* ===================== renderer, scene, light ===================== */
@@ -621,7 +628,7 @@ function unitIconSVG(sp) {
 /* ===================== game state ===================== */
 const G = {
   res: { wood: 0, stone: 0, food: 0, gold: 0 }, age: 0, t: 0, wave: 0, nextWave: 90, speed: 1, paused: true, over: false,
-  smith: 0, threat: 0, spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 0, keepB: null, kills: 0, sel: null, build: null, popCap: 5, selU: [], cmd: null
+  smith: 0, tech: { armor: 0, farm: 0, tools: 0 }, threat: 0, spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 0, keepB: null, kills: 0, sel: null, build: null, popCap: 5, selU: [], cmd: null
 };
 const buildings = [], units = [], enemies = [], shots = [], parts = [];
 let bid = 1;
@@ -847,34 +854,36 @@ const ABIL = {
 };
 function applyStats(u) {
   const d = u.def, L = u.lvl - 1;
-  const mh = Math.round(d.hp * (1 + 0.14 * L) * (u.trait === 'sturdy' ? 1.15 : 1));
-  u.hp = Math.min(mh, u.hp + (mh - u.maxhp)); u.maxhp = mh;
-  u.dmgM = (1 + 0.1 * L) * (u.trait === 'keen' ? 1.12 : 1);
-  u.speed = d.speed * (u.trait === 'swift' ? 1.12 : 1) * (1 + 0.012 * L);
+  const arm = u.role === 'worker' ? 1 : 1 + 0.15 * G.tech.armor, el = u.elite ? 1.35 : 1;
+  const mh = Math.round(d.hp * (1 + 0.14 * L) * (u.trait === 'sturdy' ? 1.15 : 1) * arm * el);
+  u.hp = Math.min(mh, u.hp + (mh - (u.maxhp || mh))); u.maxhp = mh;
+  u.dmgM = (1 + 0.1 * L) * (u.trait === 'keen' ? 1.12 : 1) * (u.elite ? 1.3 : 1);
+  u.speed = d.speed * (u.trait === 'swift' ? 1.12 : 1) * (1 + 0.012 * L) * (u.elite ? 1.08 : 1);
 }
 const badgeMats = {};
-function badgeFor(l) {
-  if (!badgeMats[l]) {
+function badgeFor(l, elite) {
+  const key = (elite ? 'e' : '') + l;
+  if (!badgeMats[key]) {
     let m = null;
     try {
       const c = document.createElement('canvas'); c.width = 64; c.height = 32;
       const x = c.getContext('2d');
       if (x) {
         x.fillStyle = 'rgba(10,16,20,.82)'; x.fillRect(0, 0, 64, 32);
-        x.fillStyle = '#f0b94a'; x.font = 'bold 22px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-        x.fillText('★' + l, 32, 17);
+        x.fillStyle = elite ? '#ffe27a' : '#f0b94a'; x.font = 'bold 22px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+        x.fillText((elite ? '♛' : '★') + l, 32, 17);
         const t = new THREE.CanvasTexture(c); t.minFilter = THREE.LinearFilter;
         m = new THREE.SpriteMaterial({ map: t, depthTest: false, transparent: true });
       }
     } catch (e) { m = null; }
-    badgeMats[l] = m || new THREE.SpriteMaterial({ color: 0xf0b94a, depthTest: false, transparent: true });
+    badgeMats[key] = m || new THREE.SpriteMaterial({ color: elite ? 0xffe27a : 0xf0b94a, depthTest: false, transparent: true });
   }
-  return badgeMats[l];
+  return badgeMats[key];
 }
 function setBadge(u) {
   if (u.lvl < 2 || u.dead) return;
-  if (!u.badge) { u.badge = new THREE.Sprite(badgeFor(u.lvl)); u.badge.renderOrder = 12; u.badge.scale.set(0.44, 0.22, 1); u.badge.position.set(0, (u.hgt || 0.8) + 0.55, 0); u.model.add(u.badge); }
-  else u.badge.material = badgeFor(u.lvl);
+  if (!u.badge) { u.badge = new THREE.Sprite(badgeFor(u.lvl, u.elite)); u.badge.renderOrder = 12; u.badge.scale.set(0.44, 0.22, 1); u.badge.position.set(0, (u.hgt || 0.8) + 0.55, 0); u.model.add(u.badge); }
+  else u.badge.material = badgeFor(u.lvl, u.elite);
 }
 function grantXP(u, n) {
   if (!u || u.dead || u.team !== 0 || u.lvl >= MAXLVL) return;
@@ -1273,7 +1282,7 @@ function updateWorker(u, dt) {
         puff(n.x, 0.4, n.z, n.type === 'wood' ? 0x6b4a2f : n.type === 'gold' ? 0xf2c14e : n.type === 'food' ? 0xd9344a : 0xb1b7bd, 2, 1.2, 0.35, 0.07);
         if (n.amt <= 0) { releaseWorker(u); removeNode(n); u.state = 'toDrop'; break; }
       }
-      if (u.carry >= 8 + (u.lvl >> 1)) { releaseWorker(u); u.state = 'toDrop'; }
+      if (u.carry >= carryCap(u)) { releaseWorker(u); u.state = 'toDrop'; }
       break;
     }
     case 'toDrop': {
@@ -1523,6 +1532,33 @@ function trainUnit(role) {
   const u = makeUnit(role, bar.x + rnd(-0.4, 0.4), bar.z + 1.5);
   puff(u.x, 0.5, u.z, 0xffffff, 5, 1.2, 0.4, 0.1); sfx('spawn', u.x, u.z);
 }
+const carryCap = u => 8 + (u.lvl >> 1) + 2 * G.tech.tools + (u.elite ? 3 : 0);
+function techNext(t) { return G.tech[t.id] >= t.max ? null : t.cost[G.tech[t.id]]; }
+function researchTech(id) {
+  const t = TECHS.find(x => x.id === id);
+  if (G.age < t.age) return toast(`${t.name} needs ${AGES[t.age].name}`, true);
+  if (t.need && !buildings.some(b => b.type === t.need && b.done)) return toast(`Build a ${BDEF[t.need].name} first`, true);
+  const c = techNext(t);
+  if (!c) return toast(`${t.name} is fully researched`);
+  if (!afford(c)) return toast('Not enough resources', true);
+  pay(c); G.tech[id]++;
+  if (id === 'armor') for (const u of units) if (!u.dead) { applyStats(u); dropBar(u); }
+  sfx('done'); toast(`${t.name} level ${G.tech[id]} researched`);
+}
+const canPromote = u => !u.dead && !u.elite && u.lvl >= PROMO_LVL;
+function promoteUnits(us) {
+  const el = us.filter(canPromote);
+  if (!el.length) return toast(`Units need level ${PROMO_LVL} to be promoted`, true);
+  let n = 0;
+  for (const u of el) {
+    if (!afford(PROMO_COST)) { if (!n) toast('Not enough resources to promote', true); break; }
+    pay(PROMO_COST); u.elite = true; n++;
+    applyStats(u); u.hp = u.maxhp; dropBar(u); setBadge(u);
+    u.model.scale.multiplyScalar(1.12);
+    puff(u.x, u.y + 0.9, u.z, 0xffe27a, 14, 2, 0.8, 0.15); sfx('age', u.x, u.z);
+  }
+  if (n) toast(`${n} ${n > 1 ? 'animals' : el[0].name} promoted to Elite: +35% health, +30% damage`);
+}
 function upgradeSmith() {
   if (!buildings.some(b => b.type === 'smith' && b.done)) return toast('Build a Blacksmith first', true);
   if (G.smith >= 3) return toast('Weapons are fully sharpened');
@@ -1553,7 +1589,7 @@ function step(dt) {
   G.popCap = BDEF.keep.pop + buildings.reduce((s, b) => s + (b.done && b.def.pop && b.type !== 'keep' ? b.def.pop : 0), 0);
   for (const b of buildings) {
     if (!b.done) continue;
-    if (b.def.income) for (const k in b.def.income) G.res[k] += b.def.income[k] * dt * (k === 'food' ? seasonFood() : 1);
+    if (b.def.income) for (const k in b.def.income) G.res[k] += b.def.income[k] * dt * (k === 'food' ? seasonFood() * (1 + 0.25 * G.tech.farm) : 1);
     if (b.def.range) updateTower(b, dt);
   }
   // new settlers
@@ -1620,7 +1656,7 @@ function clearEntities() {
 function newGame() {
   clearEntities();
   genWorld();
-  Object.assign(G, { res: { wood: 140, stone: 30, food: 100, gold: 20 }, age: 0, t: 0, wave: 0, nextWave: 90, over: false, smith: 0, threat: rnd(0, 6.28), spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 6, kills: 0, sel: null, build: null, selU: [], cmd: null });
+  Object.assign(G, { res: { wood: 140, stone: 30, food: 100, gold: 20 }, age: 0, t: 0, wave: 0, nextWave: 90, over: false, smith: 0, tech: { armor: 0, farm: 0, tools: 0 }, threat: rnd(0, 6.28), spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 6, kills: 0, sel: null, build: null, selU: [], cmd: null });
   resetEnv();
   G.keepB = placeBuilding('keep', KX, KZ, true);
   for (let k = 0; k < 5; k++) makeUnit('worker', KX - 2 + k, KZ + 2.4);
@@ -2245,13 +2281,14 @@ function renderDock() {
   if (curTab === 'army') {
     for (const k in UDEF) if (k !== 'worker') list.push({ kindOf: 'u', id: k, def: UDEF[k] });
     list.push({ kindOf: 'x', id: 'smith', def: { name: 'Sharpen Weapons', cost: SMITH_COST[0], age: 2, blurb: 'Every defender and tower hits 20% harder per level.', role: 'Weapon upgrade', what: 'Pays the smiths to sharpen every weapon in the valley.', help: 'Each level adds +20% damage to every defender and every tower, up to three levels. Needs a finished Blacksmith.', tip: 'Worth buying before the boss raids at 5, 10 and 15.', hp: 0 } });
+    for (const t of TECHS) list.push({ kindOf: 'x', id: t.id, def: { name: t.name, cost: t.cost[0], age: t.age, blurb: t.what, role: t.role, what: t.what, help: t.help, tip: t.tip, hp: 0 } });
   }
   const box2 = $('cards');
   box2.innerHTML = '';
   cards = list.map(it => {
     const el = document.createElement('button');
     el.className = 'card';
-    el.innerHTML = `<div class="ic">${it.kindOf === 'u' ? unitIconSVG(it.def.sp) : it.kindOf === 'x' ? iconSVG('smith') : iconSVG(it.id)}</div><div class="nm">${it.def.name}</div><div class="cs">${costHTML(it.def.cost)}</div><span class="lk"></span>`;
+    el.innerHTML = `<div class="ic">${it.kindOf === 'u' ? unitIconSVG(it.def.sp) : it.kindOf === 'x' ? iconSVG(it.id === 'farm' ? 'farm' : it.id === 'tools' ? 'camp' : 'smith') : iconSVG(it.id)}</div><div class="nm">${it.def.name}</div><div class="cs">${costHTML(it.def.cost)}</div><span class="lk"></span>`;
     el.addEventListener('click', () => onCard(it));
     const showCard = () => {
       const d = it.def, r = el.getBoundingClientRect(), locked = d.age !== undefined && G.age < d.age ? `Unlocks in the ${AGES[d.age].name}` : '';
@@ -2275,14 +2312,18 @@ function onCard(it) {
     G.build = G.build === it.id ? null : it.id; G.sel = null; G.selU = []; G.cmd = null; sfx('click');
     if (G.build) toast(d.wall ? `${d.name}: click or drag to build` : `${d.name}: click the ground to build`);
   } else if (it.kindOf === 'u') { trainUnit(it.id); }
-  else upgradeSmith();
+  else if (it.id === 'smith') upgradeSmith();
+  else researchTech(it.id);
   updateDock(true);
 }
 function updateDock(force) {
   for (const c of cards) {
     const d = c.it.def;
     let cost = d.cost, lock = '', sel = false;
-    if (c.it.kindOf === 'x') { cost = SMITH_COST[Math.min(G.smith, 2)]; lock = G.smith >= 3 ? 'Max' : `Lv ${G.smith + 1}`; }
+    if (c.it.kindOf === 'x') {
+      if (c.it.id === 'smith') { cost = SMITH_COST[Math.min(G.smith, 2)]; lock = G.smith >= 3 ? 'Max' : `Lv ${G.smith + 1}`; }
+      else { const t = TECHS.find(x => x.id === c.it.id), lv = G.tech[t.id]; cost = t.cost[Math.min(lv, t.max - 1)]; lock = lv >= t.max ? 'Max' : `Lv ${lv + 1}`; }
+    }
     if (d.age !== undefined && G.age < d.age) lock = AGES[d.age].name.split(' ')[0];
     if (c.it.kindOf === 'b') sel = G.build === c.it.id;
     const poor = Object.keys(cost).map(k => (G.res[k] >= cost[k] ? 1 : 0)).join('');
@@ -2393,8 +2434,8 @@ function updateUnitInfo(el, us) {
   const one = us.length === 1 ? us[0] : null, soldiers = us.filter(u => u.role !== 'worker'), workers = us.length - soldiers.length;
   const ready = us.filter(canAbility), cd = Math.ceil(Math.min(...soldiers.filter(u => u.lvl >= 3).map(u => Math.max(0, u.abCd)), 99));
   if (one) {
-    $('infoTitle').textContent = `${one.name} the ${one.def.name}`;
-    $('infoRole').textContent = `Level ${one.lvl}${one.trait ? ' · ' + TRAITS[one.trait] : ''}`;
+    $('infoTitle').textContent = `${one.name} the ${one.elite ? 'Elite ' : ''}${one.def.name}`;
+    $('infoRole').textContent = `${one.elite ? 'Elite · ' : ''}Level ${one.lvl}${one.trait ? ' · ' + TRAITS[one.trait] : ''}`;
     $('infoHp').style.width = clamp(one.hp / one.maxhp * 100, 0, 100) + '%';
     $('infoXpBox').style.display = '';
     $('infoXp').style.width = (one.lvl >= MAXLVL ? 100 : clamp(one.xp / xpNeed(one.lvl) * 100, 0, 100)) + '%';
@@ -2402,7 +2443,7 @@ function updateUnitInfo(el, us) {
     $('infoText').textContent = `${Math.ceil(one.hp)} / ${one.maxhp} hp.${dmg} ${orderState(one)}.` + (one.lvl < MAXLVL ? ` XP ${one.xp} / ${xpNeed(one.lvl)}.` : ' Max level.');
     const ab = ABIL[one.role];
     $('infoHelp').textContent = one.role === 'worker'
-      ? `Levels up by working: carries ${8 + (one.lvl >> 1)} per trip and works ${Math.round(7 * (one.lvl - 1))}% faster. Right-click a tree, rock, site or damaged building to send it there.`
+      ? `Levels up by working: carries ${carryCap(one)} per trip and works ${Math.round(7 * (one.lvl - 1))}% faster. Right-click a tree, rock, site or damaged building to send it there.${one.elite ? '' : ` Reach level ${PROMO_LVL} to promote it to Elite.`}`
       : ab ? (one.lvl >= 3 ? `${ab.name}: ${ab.desc} ${one.abCd > 0 ? `Ready in ${Math.ceil(one.abCd)}s.` : 'Ready.'}` : `Learns ${ab.name} at level 3: ${ab.desc}`) : '';
   } else {
     $('infoTitle').textContent = `${us.length} animals`;
@@ -2413,7 +2454,7 @@ function updateUnitInfo(el, us) {
     $('infoText').textContent = `Average level ${(us.reduce((s2, u) => s2 + u.lvl, 0) / us.length).toFixed(1)}.`;
     $('infoHelp').textContent = 'Right-click the ground to move, an enemy to attack, or a tree, rock or damaged building to send settlers to work.';
   }
-  const sig = ['u', us.map(u => u.id || (u.id = bid++)).join(), G.cmd, ready.length, cd, soldiers.some(u => u.hold)].join('|');
+  const sig = ['u', us.map(u => u.id || (u.id = bid++)).join(), G.cmd, ready.length, cd, soldiers.some(u => u.hold), us.filter(canPromote).length, afford(PROMO_COST)].join('|');
   if (sig === infoSig) return;
   infoSig = sig;
   const row = $('infoBtns');
@@ -2425,8 +2466,12 @@ function updateUnitInfo(el, us) {
     if (soldiers.some(u => u.lvl >= 3)) row.appendChild(sumBtn(ready.length ? 'Ability (F)' : `Ability ${cd}s`, () => castAbilities(), 'go', !ready.length));
   }
   row.appendChild(sumBtn(soldiers.length ? 'Stop / Return' : 'Back to work', () => { orderStop(us, true); G.cmd = null; }));
+  const promo = us.filter(canPromote);
+  if (promo.length) row.appendChild(sumBtn(promo.length > 1 ? `Promote ${promo.length}` : 'Promote to Elite', () => promoteUnits(us), 'go', !afford(PROMO_COST)));
   row.appendChild(sumBtn('Deselect', () => { G.selU = []; G.cmd = null; }));
 }
+function deselectAll() { G.sel = null; G.selU = []; G.cmd = null; infoSig = ''; sfx('click'); }
+$('infoClose').addEventListener('click', deselectAll);
 function castAbilities() { let n = 0; for (const u of G.selU) if (useAbility(u)) n++; if (!n) toast('No ability ready or no raiders in reach', true); }
 let hintedMove = false;
 function selectUnits(list, add) {
@@ -2531,6 +2576,7 @@ function leftClick(cx, cy, e) {
     const now = performance.now();
     if (lastClick.u === mine && now - lastClick.t < 380) selectUnits(units.filter(u => !u.dead && u.role === mine.role && Math.hypot(screenOf(u)[0] - screenOf(mine)[0], screenOf(u)[1] - screenOf(mine)[1]) < 900), false);
     else if (e.shiftKey && G.selU.includes(mine)) { G.selU = G.selU.filter(u => u !== mine); infoSig = ''; }
+    else if (touch && G.selU.length === 1 && G.selU[0] === mine && now - lastClick.t > 380) { deselectAll(); lastClick = { t: now, u: null }; return; }
     else selectUnits([mine], e.shiftKey);
     lastClick = { t: now, u: mine };
     return;
@@ -2769,12 +2815,12 @@ function snapshot() {
     meta: { wave: G.wave, age: G.age, pop: popCount(), t: Math.floor(G.t), season: SEASONS[ENV.season].name },
     seed, nodes: nodes.map(n => ({ type: n.type, i: n.i, j: n.j, amt: n.amt })),
     G: {
-      res: Object.assign({}, G.res), age: G.age, t: G.t, wave: G.wave, nextWave: G.nextWave === Infinity ? -1 : G.nextWave, smith: G.smith, threat: G.threat,
+      res: Object.assign({}, G.res), age: G.age, t: G.t, wave: G.wave, nextWave: G.nextWave === Infinity ? -1 : G.nextWave, smith: G.smith, tech: Object.assign({}, G.tech), threat: G.threat,
       birthT: G.birthT, treeT: G.treeT, kills: G.kills, speed: G.speed, slot: G.slot,
       spawnQ: G.spawnQ.map(q => ({ dt: q.t - G.t, kind: q.kind, x: q.x, z: q.z, mult: q.mult }))
     },
     buildings: buildings.filter(b => !b.dead).map(b => ({ type: b.type, i: b.i, j: b.j, hp: b.hp, maxhp: b.maxhp, progress: b.progress, done: b.done })),
-    units: units.filter(u => !u.dead).map(u => ({ role: u.role, sp: u.sp, x: u.x, z: u.z, hp: u.hp, lvl: u.lvl, xp: u.xp, trait: u.trait, name: u.name, carry: u.carry, carryType: u.carryType, slot: u.slot, home: u.home, hold: u.hold })),
+    units: units.filter(u => !u.dead).map(u => ({ role: u.role, sp: u.sp, x: u.x, z: u.z, hp: u.hp, lvl: u.lvl, xp: u.xp, trait: u.trait, name: u.name, carry: u.carry, carryType: u.carryType, slot: u.slot, home: u.home, hold: u.hold, elite: u.elite })),
     enemies: enemies.filter(e => !e.dead).map(e => ({ kind: e.kind, x: e.x, z: e.z, hp: e.hp, maxhp: e.maxhp, dmg: e.dmg })),
     env: { tod: ENV.tod, todMode: ENV.todMode, todPin: ENV.todPin, sCur: ENV.sCur, sMode: ENV.sMode, sPin: ENV.sPin, wType: ENV.wType, wAuto: ENV.wAuto, cover: ENV.cover },
     cam: { tx: cam.tx, tz: cam.tz, yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist }
@@ -2788,7 +2834,7 @@ function applySnapshot(s) {
   genWorld(s);
   const g = s.G;
   Object.assign(G, {
-    res: Object.assign({ wood: 0, stone: 0, food: 0, gold: 0 }, g.res), age: g.age, t: g.t, wave: g.wave, nextWave: g.nextWave < 0 ? Infinity : g.nextWave, over: false, smith: g.smith, threat: g.threat,
+    res: Object.assign({ wood: 0, stone: 0, food: 0, gold: 0 }, g.res), age: g.age, t: g.t, wave: g.wave, nextWave: g.nextWave < 0 ? Infinity : g.nextWave, over: false, smith: g.smith, tech: Object.assign({ armor: 0, farm: 0, tools: 0 }, g.tech), threat: g.threat,
     spawnQ: [], markers: [], slot: 0, birthT: g.birthT, treeT: g.treeT, kills: g.kills, sel: null, build: null, selU: [], cmd: null, speed: g.speed || 1
   });
   for (const q of g.spawnQ || []) G.spawnQ.push({ t: G.t + q.dt, kind: q.kind, x: q.x, z: q.z, mult: q.mult });
@@ -2802,7 +2848,8 @@ function applySnapshot(s) {
   for (const su of s.units) {
     const u = makeUnit(su.role, su.x, su.z, su.sp);
     u.name = su.name || u.name; u.trait = su.trait; u.lvl = su.lvl || 1; u.xp = su.xp || 0;
-    if (u.trait) applyStats(u); else { u.maxhp = Math.round(u.def.hp); }
+    u.elite = !!su.elite; if (u.elite) u.model.scale.multiplyScalar(1.12);
+    u.maxhp = 0; applyStats(u);
     u.hp = Math.min(su.hp, u.maxhp); u.carry = su.carry || 0; u.carryType = su.carryType || null; u.slot = su.slot || 0; u.home = su.home || null; u.hold = !!su.hold;
     setBadge(u);
     if (u.hp < u.maxhp) showBar(u);
