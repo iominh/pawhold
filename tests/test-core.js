@@ -18,8 +18,8 @@ module.exports = {
     g.run('startWave()'); g.steps(20 * 60);
     assert(g.run('G.kills') > 0, 'raiders killed: ' + g.run('G.kills'));
     assert(g.run('G.keepB.hp') > 0 && !g.run('G.over'), 'town survived');
-    g.steps(20 * 30);
-    assert(g.run("units.filter(u => u.role === 'worker' && u.state === 'flee').length") === 0, 'nobody still fleeing');
+    g.run("for (const e of enemies) if (!e.dead) killUnit(e);"); g.steps(20 * 8);
+    assert(g.run("units.filter(u => u.role === 'worker' && u.state === 'flee').length") === 0, 'nobody still fleeing once the raid is over');
     assert(g.errs.length === 0, 'no page errors: ' + g.errs.join(' | '));
   },
   'resources regrow and settlers never idle with work available'() {

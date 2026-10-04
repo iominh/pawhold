@@ -12,7 +12,7 @@ module.exports = {
     g.click('popChip'); assert(g.run("document.getElementById('tip').textContent").includes('Population'), 'pop chip explains population');
     g.run('openSaveModal()'); assert(g.run("document.getElementById('diagText').textContent").includes('fps'), 'diagnostics shown');
     assert(g.run("document.querySelectorAll('#tips li').length") >= 8, 'tips listed'); g.run('closeSaveModal(false)');
-    g.run("G.res = { wood: 9999, stone: 9999, food: 9999, gold: 9999 }; G.age = 2; curTab = 'army'; renderDock(); updateDock(true)");
+    g.run("G.res = { wood: 9999, stone: 9999, food: 9999, gold: 9999 }; G.age = 2; curTab = 'research'; renderDock(); updateDock(true)");
     assert(g.run("[...document.querySelectorAll('.card .nm')].map(c => c.textContent).join()").includes('Crop Rotation'), 'tech cards present');
     g.run("__put('barracks', -5, 0); for (let k = 0; k < 20 * 20; k++) step(0.05); G.res = { wood: 9999, stone: 9999, food: 9999, gold: 9999 }; __put('house', 4, -3); for (let k = 0; k < 20 * 20; k++) step(0.05); trainUnit('guard'); const u = units.find(x => x.role === 'guard'); u.lvl = 5; applyStats(u); selectUnits([u], false); infoSig = ''; updateInfo()");
     assert(g.run("[...document.querySelectorAll('#infoBtns button')].map(b => b.textContent).join()").includes('Promote'), 'promote button for a level 5 unit');

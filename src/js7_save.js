@@ -9,7 +9,7 @@ function snapshot() {
     meta: { wave: G.wave, age: G.age, pop: popCount(), t: Math.floor(G.t), season: SEASONS[ENV.season].name },
     seed, nodes: nodes.map(n => ({ type: n.type, i: n.i, j: n.j, amt: n.amt })),
     G: {
-      res: Object.assign({}, G.res), age: G.age, t: G.t, wave: G.wave, nextWave: G.nextWave === Infinity ? -1 : G.nextWave, smith: G.smith, tech: Object.assign({}, G.tech), diff: G.diff, threat: G.threat,
+      res: Object.assign({}, G.res), age: G.age, t: G.t, wave: G.wave, nextWave: G.nextWave === Infinity ? -1 : G.nextWave, smith: G.smith, tech: Object.assign({}, G.tech), diff: G.diff, endless: !!G.endless, threat: G.threat,
       birthT: G.birthT, treeT: G.treeT, kills: G.kills, speed: G.speed, slot: G.slot,
       spawnQ: G.spawnQ.map(q => ({ dt: q.t - G.t, kind: q.kind, x: q.x, z: q.z, mult: q.mult }))
     },
@@ -28,7 +28,7 @@ function applySnapshot(s) {
   genWorld(s);
   const g = s.G;
   Object.assign(G, {
-    res: Object.assign({ wood: 0, stone: 0, food: 0, gold: 0 }, g.res), age: g.age, t: g.t, wave: g.wave, nextWave: g.nextWave < 0 ? Infinity : g.nextWave, over: false, smith: g.smith, tech: Object.assign({ armor: 0, farm: 0, tools: 0 }, g.tech), diff: DIFF[g.diff] ? g.diff : 'normal', threat: g.threat,
+    res: Object.assign({ wood: 0, stone: 0, food: 0, gold: 0 }, g.res), age: g.age, t: g.t, wave: g.wave, nextWave: g.nextWave < 0 ? Infinity : g.nextWave, over: false, endless: !!g.endless, smith: g.smith, tech: Object.assign({}, g.tech || {}), diff: DIFF[g.diff] ? g.diff : 'normal', threat: g.threat,
     spawnQ: [], markers: [], slot: 0, birthT: g.birthT, treeT: g.treeT, kills: g.kills, sel: null, build: null, selU: [], cmd: null, speed: g.speed || 1
   });
   for (const q of g.spawnQ || []) G.spawnQ.push({ t: G.t + q.dt, kind: q.kind, x: q.x, z: q.z, mult: q.mult });

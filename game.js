@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.9.0', GAME_BUILD = '9c99174';
+const GAME_VERSION = '2.0.0', GAME_BUILD = 'fe67040';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 88, KX = 44, KZ = 44, MARGIN = 3, TOTAL_WAVES = 25, RAID_DIST = 21;   // raiders muster about 21 tiles out, whatever the map size
@@ -15,7 +15,12 @@ const AGES = [
   { name: 'Gunpowder Age', sky: 0xc9b6dc, sun: 0xffd2b0, sunI: 0.8, pal: { wall: 0xb9bec6, roof: 0x2e3a55, trim: 0xe3b44e, beam: 0x8a919a, flag: 0x7a2fb3 } },
   { name: 'Imperial Age', sky: 0xe3d3c2, sun: 0xffe6c4, sunI: 0.86, pal: { wall: 0xe9e3d7, roof: 0x8c2d3a, trim: 0xd4af37, beam: 0x7a6a5a, flag: 0xb3122e } },
   { name: 'Clockwork Age', sky: 0xc4d4de, sun: 0xfff1dc, sunI: 0.9, pal: { wall: 0x707b87, roof: 0xb87333, trim: 0xe0b24a, beam: 0x3f464f, flag: 0x1f8a70 } },
-  { name: 'Skyward Age', sky: 0x9fc6ff, sun: 0xfff8ee, sunI: 0.95, pal: { wall: 0xdfe6f0, roof: 0x2cc4d8, trim: 0x7fe0ff, beam: 0x3b4a5a, flag: 0x00e5ff } }
+  { name: 'Skyward Age', sky: 0x9fc6ff, sun: 0xfff8ee, sunI: 0.95, pal: { wall: 0xdfe6f0, roof: 0x2cc4d8, trim: 0x7fe0ff, beam: 0x3b4a5a, flag: 0x00e5ff } },
+  { name: 'Fusion Age', sky: 0xb9d6ff, sun: 0xfff6f0, sunI: 0.95, pal: { wall: 0x2f3b4a, roof: 0xff7a2a, trim: 0xffb347, beam: 0x1b2430, flag: 0xff6a00 } },
+  { name: 'Orbital Age', sky: 0x8fb4ff, sun: 0xffffff, sunI: 1.0, pal: { wall: 0xe8ecf4, roof: 0x5c6fff, trim: 0xc3d0ff, beam: 0x2a3350, flag: 0x5c6fff } },
+  { name: 'Nanotech Age', sky: 0xa8e6d8, sun: 0xf4fff8, sunI: 0.95, pal: { wall: 0x1f2a2a, roof: 0x19e6a0, trim: 0x7fffd4, beam: 0x0f1a1a, flag: 0x19e6a0 } },
+  { name: 'Quantum Age', sky: 0xcbb8ff, sun: 0xfff0ff, sunI: 0.95, pal: { wall: 0x3a2a5a, roof: 0xb060ff, trim: 0xe6c7ff, beam: 0x22183a, flag: 0xb060ff } },
+  { name: 'Stellar Age', sky: 0x7a86c8, sun: 0xfff4d6, sunI: 1.0, pal: { wall: 0xf6f1ff, roof: 0xffd36b, trim: 0xffffff, beam: 0x3a3f66, flag: 0xffd36b } }
 ];
 const AGE_COST = [null,
   { wood: 150, food: 120 },
@@ -23,21 +28,26 @@ const AGE_COST = [null,
   { wood: 320, stone: 380, food: 300, gold: 260 },
   { wood: 420, stone: 540, food: 420, gold: 440 },
   { wood: 540, stone: 720, food: 560, gold: 720 },
-  { wood: 600, stone: 900, food: 700, gold: 1000 }];
+  { wood: 600, stone: 900, food: 700, gold: 1000 },
+  { wood: 700, stone: 1100, food: 900, gold: 1400 },
+  { wood: 800, stone: 1400, food: 1100, gold: 1900 },
+  { wood: 900, stone: 1700, food: 1300, gold: 2500 },
+  { wood: 1000, stone: 2000, food: 1600, gold: 3200 },
+  { wood: 1200, stone: 2400, food: 2000, gold: 4000 }];
 
 const DIFF = {
   gentle: { name: 'Gentle', first: 150, gapHi: 100, gapLo: 60, count: 0.65, mult: 0.8, blurb: 'Fewer, weaker raiders and long breaks between raids. Good for learning the valley.' },
   normal: { name: 'Normal', first: 120, gapHi: 74, gapLo: 48, count: 0.85, mult: 0.95, blurb: 'A fair fight. Raids come about every minute and grow steadily.' },
   hard:   { name: 'Hard', first: 90, gapHi: 64, gapLo: 40, count: 1.0, mult: 1.0, blurb: 'The original pace: fast raids, full packs, a boss every fifth raid.' }
 };
-const WALL_COST = [{ wood: 6 }, { stone: 8 }, { stone: 10 }, { stone: 12 }, { stone: 14, gold: 2 }, { stone: 16, gold: 4 }, { stone: 18, gold: 6 }];
-const WALL_HP = [110, 340, 520, 760, 1050, 1400, 1850];
+const WALL_COST = [{ wood: 6 }, { stone: 8 }, { stone: 10 }, { stone: 12 }, { stone: 14, gold: 2 }, { stone: 16, gold: 4 }, { stone: 18, gold: 6 }, { stone: 20, gold: 8 }, { stone: 22, gold: 10 }, { stone: 24, gold: 12 }, { stone: 26, gold: 14 }, { stone: 28, gold: 16 }];
+const WALL_HP = [110, 340, 520, 760, 1050, 1400, 1850, 2400, 3000, 3800, 4800, 6000];
 // drag-to-paint buildings: walls and plantings
 const BDEF = {
   house:    { name: 'Burrow House', cat: 'town', size: 1, age: 0, cost: { wood: 20 }, hp: 90, time: 3, pop: 3, r: 0.8, blurb: 'Shelter for 3 animals.', role: 'Housing', what: 'Burrows where your animals sleep. Every house raises the population cap by 3.', help: 'More animals means more settlers gathering and more defenders. New settlers only arrive while there is room, and soldiers count against the cap too.', tip: 'If the pop counter is full (say 8/8), nobody new will join. Build houses before you need them.' },
   farm:     { name: 'Berry Farm', cat: 'town', size: 1, age: 0, cost: { wood: 30 }, hp: 70, time: 4, r: 0.8, drop: ['food'], income: { food: 0.55 }, blurb: 'Grows food. Berries are dropped off here.', role: 'Food', what: 'A berry patch tended automatically.', help: 'Makes 0.55 food a second on its own, and settlers drop berries off here. Food feeds new settlers (25 each) and trains soldiers.', tip: 'Build beside berry bushes or close to the Hall to keep carry trips short.' },
   camp:     { name: 'Lumber Camp', cat: 'town', size: 1, age: 0, cost: { wood: 35 }, hp: 90, time: 3, r: 0.8, drop: ['wood'], blurb: 'Wood drop-off. Build beside a forest.', role: 'Wood drop-off', what: 'A stockpile where choppers unload their logs.', help: 'Settlers carry 8 wood a trip, so a long walk wastes most of their day. A camp beside a forest cuts the walk, and drop-offs here pay +25% over the Great Hall.', tip: 'Place it on the edge of a forest, not in the middle of your town.' },
-  sapling:  { name: 'Plant Saplings', cat: 'town', size: 1, age: 0, cost: { food: 12 }, hp: 20, time: 6, r: 0.5, plant: 'wood', blurb: 'Grows a new tree where you place it.', role: 'Forestry', what: 'Settlers plant a sapling that grows into a full tree.', help: 'Once planted it becomes a tree worth 30 wood, and nearby saplings grow into a grove. Drag to plant a row. The way to bring a forest back next to your Lumber Camp.', tip: 'Plant right beside the camp so every trip is short.' },
+  sapling:  { name: 'Plant Saplings', cat: 'town', size: 1, age: 0, get cost() { return { food: Math.max(4, 12 - 4 * ((G.tech && G.tech.forestry) || 0)) }; }, hp: 20, time: 6, r: 0.5, plant: 'wood', blurb: 'Grows a new tree where you place it.', role: 'Forestry', what: 'Settlers plant a sapling that grows into a full tree.', help: 'Once planted it becomes a tree worth 30 wood, and nearby saplings grow into a grove. Drag to plant a row. The way to bring a forest back next to your Lumber Camp.', tip: 'Plant right beside the camp so every trip is short.' },
   berrybed: { name: 'Berry Bed', cat: 'town', size: 1, age: 0, cost: { wood: 10, food: 6 }, hp: 20, time: 5, r: 0.5, plant: 'food', blurb: 'Grows a new berry bush.', role: 'Forestry', what: 'A bed of seedlings that becomes a berry bush.', help: 'Becomes a bush worth 24 berries once planted. Drag to plant a patch near a Berry Farm.', tip: 'Bushes do not need tending: settlers pick them like any other bush.' },
   quarry:   { name: 'Quarry', cat: 'town', size: 1, age: 1, cost: { wood: 50 }, hp: 120, time: 5, r: 0.8, drop: ['stone', 'gold'], income: { stone: 0.12 }, blurb: 'Stone and gold drop-off. Build beside rocks.', role: 'Stone and gold drop-off', what: 'A stone yard where miners unload rock and gold.', help: 'Stone builds walls, towers and new ages. Like the camp, it pays +25% on everything dropped here and saves long trips, and its quarrymen dig 0.12 stone a second on their own even when the rocks are gone.', tip: 'Put it next to grey rocks or gold veins.' },
   market:   { name: 'Market', cat: 'town', size: 1, age: 1, cost: { wood: 70, stone: 20 }, hp: 120, time: 5, r: 0.8, income: { gold: 0.45 }, blurb: 'Trades goods for a trickle of gold.', role: 'Gold income', what: 'Traders pay a steady stream of gold.', help: 'Earns 0.45 gold a second with no workers needed. Gold trains Guards, Knights and Musketeers, upgrades weapons and buys new ages.', tip: 'Several markets fund a much bigger army. They are safest inside your walls.' },
@@ -52,6 +62,11 @@ const BDEF = {
   skyscraper: { name: 'Skyscraper', cat: 'town', size: 2, age: 6, cost: { stone: 220, gold: 160 }, hp: 900, time: 12, pop: 12, r: 1.4, blurb: 'A tower of homes: houses 12.', role: 'Housing', what: 'A glass-and-composite tower that reaches for the clouds.', help: 'Houses 12 animals on a 2x2 footprint, four times a Burrow House on a quarter of the land. Its windows light up at night.', tip: 'Replace clusters of old houses with one tower to free space inside the walls.' },
   laser:    { name: 'Laser Tower', cat: 'defense', size: 1, age: 6, cost: { stone: 150, gold: 320 }, hp: 700, time: 9, r: 0.8, range: 10, dmg: 34, rate: 0.6, shot: 'laser', blurb: 'A beam that never misses.', role: 'Beam defense', what: 'A slender pylon with a focusing lens.', help: 'Fires a beam every 0.6 seconds out to 10 tiles for 34 damage. Fast, long and accurate: the all-round defense of the Skyward Age.', tip: 'A ring of lasers around the walls makes the valley very hard to approach.' },
   skyport:  { name: 'Sky Port', cat: 'army', size: 2, age: 6, cost: { stone: 200, gold: 300 }, hp: 700, time: 12, r: 1.4, blurb: 'Launch pad for Sky Skiffs.', role: 'Flight', what: 'A landing pad with a maintenance drone.', help: 'Needed to train Sky Skiffs, the flying defenders that ignore walls, water and crowds. Skiffs launch from here.', tip: 'Build it inside the walls; skiffs can fly out over them.' },
+  reactor:  { name: 'Fusion Reactor', cat: 'town', size: 2, age: 7, cost: { stone: 500, gold: 500 }, hp: 1200, time: 14, r: 1.4, income: { gold: 0.6, stone: 0.3, food: 0.4 }, blurb: 'Limitless power: gold, stone and food on its own.', role: 'Power', what: 'A containment dome with a star inside.', help: 'Produces 0.6 gold, 0.3 stone and 0.4 food a second with no workers. Research Fusion Lattice to boost every income further.', tip: 'Two reactors replace a whole mining economy.' },
+  orbital:  { name: 'Orbital Beacon', cat: 'defense', size: 1, age: 8, cost: { stone: 400, gold: 700 }, hp: 900, time: 12, r: 0.8, range: 14, dmg: 240, rate: 7, splash: 3.2, shot: 'orbital', blurb: 'Calls down strikes from orbit.', role: 'Orbital strike', what: 'A targeting dish that talks to the satellites.', help: 'Every 7 seconds a strike lands for 240 damage in a 3.2 tile blast, out to 14 tiles. Nothing on the ground survives many of them.', tip: 'One in the middle of town reaches everything.' },
+  nanoforge: { name: 'Nanoforge', cat: 'town', size: 1, age: 9, cost: { stone: 450, gold: 800 }, hp: 1000, time: 12, r: 0.8, heal: 8, mend: 0.012, blurb: 'Heals animals and mends buildings nearby.', role: 'Nanite aura', what: 'A hive of nanites that rebuild anything in reach.', help: 'Animals within 8 tiles heal 6 hp a second and every building within 8 tiles repairs 1.2% a second, raid or no raid.', tip: 'Walls next to a Nanoforge are nearly impossible to breach.' },
+  quantum:  { name: 'Quantum Spire', cat: 'defense', size: 1, age: 10, cost: { stone: 500, gold: 1100 }, hp: 1100, time: 12, r: 0.8, range: 12, dmg: 90, rate: 0.5, chain: 3, shot: 'quantum', blurb: 'Entangled bolts hit three raiders at once.', role: 'Chain defense', what: 'A spire that fires entangled bolts.', help: 'Every half second it hits up to three raiders within 12 tiles for 90 each.', tip: 'Shreds packs; pair with an Orbital Beacon for bosses.' },
+  starbeacon: { name: 'Star Beacon', cat: 'army', size: 2, age: 11, cost: { stone: 600, gold: 1500 }, hp: 1400, time: 16, r: 1.4, blurb: 'Builds free drone fighters.', role: 'Drone works', what: 'A beacon that assembles fighter drones from starlight.', help: 'Every 40 seconds a free Fighter Drone launches from it, up to 4 per beacon. Drones fly, need no housing and are rebuilt when lost.', tip: 'Several beacons give you an air force that never runs dry.' },
   infirmary: { name: 'Healing Hut', cat: 'town', size: 1, age: 0, cost: { wood: 55, stone: 10 }, hp: 130, time: 5, r: 0.8, heal: 5, blurb: 'Heals animals and buildings nearby.', role: 'Healing', what: 'A cosy hut with a panda healer inside.', help: 'Animals within 5 tiles heal 3 hp a second and nearby buildings are mended too. Keeps your front line alive between raids.', tip: 'Put it just behind your walls where wounded defenders gather.' },
   keep:     { name: 'Great Hall', cat: 'none', size: 3, age: 0, cost: {}, hp: 1200, time: 1, r: 2.1, drop: ['wood', 'stone', 'food', 'gold'], pop: 5, blurb: 'The heart of the clan.', role: 'Heart of the clan', what: 'Your Great Hall. If it falls, the game is lost.', help: 'Settlers drop all resources off here and new ones arrive from it. It houses 5 animals and heals those standing close. It grows tougher with each age.', tip: 'Defend it above all else. Nothing else is as hard to replace.' }
 };
@@ -63,6 +78,12 @@ const UDEF = {
   lancer: { name: 'Elk Lancer', sp: 'elk', hp: 200, speed: 2.6, dmg: 30, rate: 1.0, range: 1.4, cost: { food: 90, gold: 85 }, age: 4, blurb: 'Fast, hard-hitting cavalry.', role: 'Shock cavalry', what: 'A tall elk with a steel lance.', help: 'Quick and strong, perfect for chasing down raccoon slingers and dire wolves. At level 3 learns Stampede: a charge that knocks back every raider in its path.', tip: 'Unlocks in the Imperial Age.' },
   sage:   { name: 'Owl Sage', sp: 'owl', hp: 80, speed: 2.3, dmg: 44, rate: 1.6, range: 7.5, cost: { food: 80, gold: 140 }, age: 5, shot: 'bolt', blurb: 'Long-range bolts and a healing song.', role: 'Support caster', what: 'A wise owl with a brass staff.', help: 'Fires bolts from 7.5 tiles. At level 3 learns Hoot of Courage: every defender within 4 tiles heals 30% of its health.', tip: 'Unlocks in the Clockwork Age. Keep it behind the line.' },
   skiff:  { name: 'Sky Skiff', sp: 'fox', hp: 160, speed: 3.3, dmg: 30, rate: 0.9, range: 6.5, cost: { food: 100, gold: 230 }, age: 6, shot: 'laser', fly: true, blurb: 'A flying fox gunship.', role: 'Flying defender', what: 'A fox pilot in a hovering skiff.', help: 'Flies straight over walls, water and crowds, so it is always where you need it. Beam weapon with 6.5 tiles of reach. At level 3 learns Strafing Run: a beam sweep that hits every raider within 5 tiles.', tip: 'Needs a Sky Port. Unlocks in the Skyward Age.' },
+  mech:   { name: 'Panda Mech', sp: 'panda', hp: 460, speed: 1.9, dmg: 64, rate: 1.1, range: 1.6, cost: { food: 160, gold: 320 }, age: 7, blurb: 'A walking fortress.', role: 'Heavy mech', what: 'A panda in a fusion-powered walker.', help: 'Enormous health and crushing blows. At level 3 learns Shockwave: stamps the ground, hitting every raider within 2.5 tiles for 2x and shoving them back.', tip: 'Unlocks in the Fusion Age.' },
+  dropship: { name: 'Bear Dropship', sp: 'bear', hp: 340, speed: 2.8, dmg: 44, rate: 0.8, range: 7, cost: { food: 180, gold: 420 }, age: 8, shot: 'laser', fly: true, blurb: 'A flying gun platform.', role: 'Flying gunship', what: 'A bear pilot in an armoured dropship.', help: 'Flies, shrugs off hits and rakes raiders with beams from 7 tiles. At level 3 learns Payload: drops a bomb for 3x damage in a 3 tile blast.', tip: 'Unlocks in the Orbital Age.' },
+  swarm:  { name: 'Nano Swarm', sp: 'rabbit', hp: 140, speed: 3.4, dmg: 11, rate: 0.18, range: 4.5, cost: { food: 150, gold: 380 }, age: 9, shot: 'laser', fly: true, blurb: 'A cloud of tiny fliers.', role: 'Flying shredder', what: 'A rabbit herding a swarm of nanites.', help: 'Flies and fires five times a second. Shreds anything fast or fragile. At level 3 learns Disassemble: a burst of 8 shots at once.', tip: 'Unlocks in the Nanotech Age.' },
+  warden: { name: 'Quantum Warden', sp: 'owl', hp: 300, speed: 3.0, dmg: 85, rate: 1.0, range: 9, cost: { food: 220, gold: 600 }, age: 10, shot: 'quantum', fly: true, blurb: 'Blinks across the battlefield.', role: 'Flying striker', what: 'An owl that is never quite where you last saw it.', help: 'Flies with entangled bolts from 9 tiles. At level 3 learns Phase Shift: blinks next to the nearest raider and heals 25%.', tip: 'Unlocks in the Quantum Age.' },
+  starship: { name: 'Fox Starship', sp: 'fox', hp: 700, speed: 2.6, dmg: 140, rate: 1.2, range: 10.5, cost: { food: 260, gold: 900 }, age: 11, shot: 'orbital', fly: true, blurb: 'The pride of the fleet.', role: 'Flying capital ship', what: 'A fox captain on the bridge of a starship.', help: 'Flies, hits like an orbital strike from 10.5 tiles and takes a raid to bring down. At level 3 learns Nova: hits everything within 6 tiles for 2x.', tip: 'Unlocks in the Stellar Age.' },
+  drone:  { name: 'Fighter Drone', sp: 'fox', hp: 120, speed: 3.6, dmg: 30, rate: 0.6, range: 6, cost: {}, age: 11, shot: 'laser', fly: true, free: true, blurb: 'A free drone from the Star Beacon.', role: 'Drone fighter', what: 'An autonomous fighter the Star Beacon builds.', help: 'Launched free from a Star Beacon every 40 seconds, up to 4 per beacon. Needs no housing.', tip: 'Build beacons, not barracks, in the Stellar Age.' },
   musket: { name: 'Rabbit Musketeer', sp: 'rabbit', hp: 44, speed: 2.2, dmg: 24, rate: 1.9, range: 7, cost: { food: 45, gold: 60 }, age: 3, shot: 'bullet', blurb: 'Powder and long range.', role: 'Long-range damage', what: 'A rabbit with a flintlock.', help: 'Slow but powerful shots from 7 tiles. At level 3 learns Aimed Shot: one huge hit.', tip: 'Unlocks in the Gunpowder Age.' }
 };
 const EDEF = {
@@ -72,13 +93,45 @@ const EDEF = {
   badger:  { name: 'Badger Ram', sp: 'badger', hp: 170, speed: 1.3, dmg: 26, rate: 1.4, range: 1.1, bounty: 12, siege: true, scale: 1.1 },
   direwolf: { name: 'Dire Wolf', sp: 'wolf', hp: 150, speed: 2.9, dmg: 15, rate: 0.8, range: 1.1, bounty: 14, scale: 1.35 },
   troll:   { name: 'Troll', sp: 'troll', hp: 1500, speed: 1.1, dmg: 62, rate: 1.9, range: 1.5, bounty: 120, siege: true, scale: 2.1 },
+  drake:   { name: 'Drake', sp: 'drake', hp: 420, speed: 2.6, dmg: 36, rate: 1.0, range: 1.3, bounty: 40, scale: 1.4, fly: true },
+  juggernaut: { name: 'Juggernaut', sp: 'troll', hp: 4200, speed: 1.0, dmg: 115, rate: 2.0, range: 1.6, bounty: 260, siege: true, scale: 2.7 },
   chief:   { name: 'Bear Warlord', sp: 'warbear', hp: 700, speed: 1.5, dmg: 30, rate: 1.3, range: 1.6, bounty: 90, scale: 1.7 }
 };
+/* Research tree. Each entry: id, name, age gate, building needed (or null), max level, cost per level, group, text.
+   Effects are read where they apply through G.tech[id] (see techLevel / helpers in the sim). */
 const TECHS = [
-  { id: 'armor', name: 'Tempered Armor', age: 2, need: 'smith', max: 3, cost: [{ wood: 40, stone: 60, gold: 60 }, { stone: 120, gold: 130 }, { stone: 200, gold: 250 }], role: 'Armor upgrade', what: 'Smiths forge sturdier armor for the whole clan.', help: 'Each level adds +15% health to every defender, and it applies to the ones you already have. Needs a finished Blacksmith.', tip: 'Pairs well with Sharpen Weapons.' },
-  { id: 'farm', name: 'Crop Rotation', age: 1, need: null, max: 2, cost: [{ wood: 60, food: 60 }, { wood: 120, food: 140, gold: 40 }], role: 'Farming tech', what: 'Better planting means bigger harvests.', help: 'Each level makes every Berry Farm produce +25% more food, all year round.', tip: 'Cheap, and it pays off quickly with several farms.' },
-  { id: 'tools', name: 'Sturdy Tools', age: 1, need: null, max: 2, cost: [{ wood: 70, stone: 30 }, { wood: 140, stone: 90, gold: 40 }], role: 'Gathering tech', what: 'Better axes, picks and baskets for every settler.', help: 'Each level lets settlers carry 2 more per trip, so fewer walks back to the drop-off.', tip: 'Best when your drop-offs are a long way from the trees.' }
+  // economy
+  { id: 'farm', name: 'Crop Rotation', group: 'Economy', age: 1, need: null, max: 3, cost: [{ wood: 60, food: 60 }, { wood: 120, food: 140, gold: 40 }, { wood: 200, food: 240, gold: 120 }], role: 'Farming', what: 'Better planting means bigger harvests.', help: 'Each level makes every Berry Farm produce +25% more food, all year round, and farm tending gets the same bonus.', tip: 'Cheap, and it pays off quickly with several farms.' },
+  { id: 'tools', name: 'Sturdy Tools', group: 'Economy', age: 1, need: null, max: 3, cost: [{ wood: 70, stone: 30 }, { wood: 140, stone: 90, gold: 40 }, { wood: 220, stone: 160, gold: 120 }], role: 'Gathering', what: 'Better axes, picks and baskets for every settler.', help: 'Each level lets settlers carry 2 more per trip, so fewer walks back to the drop-off.', tip: 'Best when your drop-offs are a long way from the trees.' },
+  { id: 'carts', name: 'Hand Carts', group: 'Economy', age: 1, need: null, max: 2, cost: [{ wood: 90, food: 40 }, { wood: 180, stone: 60, gold: 60 }], role: 'Logistics', what: 'Little carts so settlers hurry between jobs.', help: 'Settlers walk 10% faster per level. Applies to every settler at once.', tip: 'Stacks nicely with Sturdy Tools on a big map.' },
+  { id: 'forestry', name: 'Forestry', group: 'Economy', age: 1, need: 'camp', max: 2, cost: [{ wood: 80, food: 50 }, { wood: 160, food: 120, gold: 50 }], role: 'Forestry', what: 'Woodsmen tend the forest as they cut it.', help: 'Trees regrow 60% faster per level and Plant Saplings costs 4 food less per level.', tip: 'Turns a Lumber Camp into a permanent wood supply.' },
+  { id: 'quarrying', name: 'Deep Quarrying', group: 'Economy', age: 1, need: 'quarry', max: 3, cost: [{ wood: 80, stone: 40 }, { wood: 120, stone: 120, gold: 60 }, { stone: 240, gold: 160 }], role: 'Mining', what: 'Shafts sunk below the rock.', help: 'Every Quarry digs +0.12 stone a second more per level, and the hills shed more boulders.', tip: 'The long-term answer to stone for late ages.' },
+  { id: 'trade', name: 'Trade Routes', group: 'Economy', age: 2, need: 'market', max: 3, cost: [{ wood: 120, gold: 60 }, { wood: 200, stone: 80, gold: 160 }, { stone: 160, gold: 320 }], role: 'Commerce', what: 'Caravans link your markets to far valleys.', help: 'Every Market earns +0.2 gold a second more per level.', tip: 'Three markets with full trade routes fund an army by themselves.' },
+  { id: 'housing', name: 'Attic Rooms', group: 'Economy', age: 1, need: null, max: 2, cost: [{ wood: 100, stone: 20 }, { wood: 200, stone: 80, gold: 50 }], role: 'Housing', what: 'Extra rooms under every roof.', help: 'Every Burrow House holds 1 more animal per level, and Skyscrapers 3 more.', tip: 'Cheaper than more houses once you have a dozen.' },
+  { id: 'medicine', name: 'Herbal Medicine', group: 'Economy', age: 1, need: 'infirmary', max: 2, cost: [{ wood: 60, food: 80 }, { food: 160, gold: 90 }], role: 'Healing', what: 'Poultices and tonics for the wounded.', help: 'All healing is 40% faster per level: the Hall, Healing Huts and natural recovery.', tip: 'Veterans are worth keeping alive; this keeps them alive.' },
+  { id: 'automata', name: 'Automatons', group: 'Economy', age: 5, need: 'smith', max: 1, cost: [{ stone: 300, gold: 400 }], role: 'Industry', what: 'Clockwork helpers in every workshop.', help: 'Farms, Markets and Quarries produce 30% more on their own.', tip: 'One purchase, everything ticks faster.' },
+  // military
+  { id: 'armor', name: 'Tempered Armor', group: 'Military', age: 2, need: 'smith', max: 3, cost: [{ wood: 40, stone: 60, gold: 60 }, { stone: 120, gold: 130 }, { stone: 200, gold: 250 }], role: 'Armor', what: 'Smiths forge sturdier armor for the whole clan.', help: 'Each level adds +15% health to every defender, including the ones you already have.', tip: 'Pairs well with Sharpen Weapons.' },
+  { id: 'drill', name: 'Drill Yard', group: 'Military', age: 1, need: 'barracks', max: 2, cost: [{ wood: 80, food: 60 }, { wood: 160, food: 120, gold: 60 }], role: 'Training', what: 'Daily drills on the parade ground.', help: 'Defenders move 8% faster per level and reach the fight sooner.', tip: 'Great for guards, who are slow.' },
+  { id: 'fletching', name: 'Fletching', group: 'Military', age: 1, need: 'barracks', max: 2, cost: [{ wood: 90, food: 40 }, { wood: 160, stone: 40, gold: 70 }], role: 'Ranged', what: 'Straighter arrows and better sights.', help: 'Every ranged defender (archers, musketeers, sages, skiffs) reaches 0.5 tiles further per level.', tip: 'Lets archers shoot over a wall from further back.' },
+  { id: 'veterans', name: 'Veteran Training', group: 'Military', age: 2, need: 'barracks', max: 2, cost: [{ food: 120, gold: 90 }, { food: 220, gold: 220 }], role: 'Experience', what: 'Old hands teach the recruits.', help: 'Level 1: new defenders start at level 2. Level 2: all defenders gain 50% more experience.', tip: 'Gets you to level 3 abilities and level 5 promotions much sooner.' },
+  { id: 'banners', name: 'War Banners', group: 'Military', age: 3, need: 'barracks', max: 2, cost: [{ wood: 100, gold: 150 }, { stone: 150, gold: 300 }], role: 'Abilities', what: 'Banners that rally the clan.', help: 'Every ability recharges 15% faster per level.', tip: 'Volley and Cleave every few seconds change a boss fight.' },
+  { id: 'aero', name: 'Aeronautics', group: 'Military', age: 6, need: 'skyport', max: 2, cost: [{ stone: 200, gold: 300 }, { stone: 300, gold: 500 }], role: 'Flight', what: 'Lighter hulls and hotter thrusters.', help: 'Sky Skiffs get +20% health and speed per level.', tip: 'Skiffs are already the fastest thing in the valley.' },
+  // defense
+  { id: 'walls', name: 'Reinforced Walls', group: 'Defense', age: 1, need: null, max: 3, cost: [{ wood: 60, stone: 60 }, { stone: 160, gold: 40 }, { stone: 300, gold: 120 }], role: 'Walls', what: 'Thicker courses and braced posts.', help: 'Every wall has +25% health per level, existing walls included.', tip: 'Walls buy time; this buys more of it.' },
+  { id: 'siegecraft', name: 'Siegecraft', group: 'Defense', age: 2, need: 'smith', max: 3, cost: [{ wood: 80, stone: 80, gold: 40 }, { stone: 160, gold: 140 }, { stone: 260, gold: 280 }], role: 'Towers', what: 'Heavier bolts, better powder, truer barrels.', help: 'Every tower deals +15% damage per level, on top of Sharpen Weapons.', tip: 'Your towers never sleep, so this is always working.' },
+  { id: 'watchfires', name: 'Watchfires', group: 'Defense', age: 1, need: null, max: 2, cost: [{ wood: 70, stone: 20 }, { wood: 120, stone: 80, gold: 40 }], role: 'Towers', what: 'Braziers on every tower top.', help: 'Every tower sees and shoots 0.5 tiles further per level.', tip: 'Half a tile is a whole extra row of raiders under fire.' },
+  { id: 'repair', name: 'Rapid Repair', group: 'Defense', age: 2, need: null, max: 2, cost: [{ wood: 100, stone: 50 }, { wood: 160, stone: 120, gold: 60 }], role: 'Repair', help: 'Settlers repair buildings twice as fast per level, and at level 2 they keep repairing during a raid.', what: 'Timber frames stacked and ready.', tip: 'Walls that heal between waves of the same raid.' },
+  { id: 'masonry', name: 'Masonry', group: 'Defense', age: 2, need: 'quarry', max: 3, cost: [{ stone: 100, gold: 30 }, { stone: 200, gold: 100 }, { stone: 320, gold: 220 }], role: 'Buildings', what: 'Dressed stone for every building.', help: 'Every building other than walls has +15% health per level, including the Great Hall.', tip: 'Makes towers and the Hall survive a badger ram.' },
+  { id: 'fusion', name: 'Fusion Lattice', group: 'Economy', age: 7, need: 'reactor', max: 2, cost: [{ stone: 400, gold: 600 }, { stone: 600, gold: 1000 }], role: 'Power', what: 'Lattices that spread reactor power to every workshop.', help: 'Every income (farms, markets, quarries, reactors, tending) is +25% per level.', tip: 'The economy keystone of the late ages.' },
+  { id: 'nano', name: 'Nanite Blood', group: 'Military', age: 9, need: 'nanoforge', max: 2, cost: [{ stone: 500, gold: 900 }, { stone: 700, gold: 1400 }], role: 'Regeneration', what: 'Nanites in every defender\'s veins.', help: 'Defenders regenerate 1% of their health a second per level, even in combat.', tip: 'Turns a long raid into a war of attrition you win.' },
+  { id: 'quantumcore', name: 'Quantum Cores', group: 'Military', age: 10, need: 'quantum', max: 2, cost: [{ stone: 600, gold: 1200 }, { stone: 800, gold: 1800 }], role: 'Abilities', what: 'Cores that bend time for your defenders.', help: 'Ability cooldowns are another 15% shorter per level, on top of War Banners.', tip: 'With both maxed, abilities are almost always ready.' },
+  { id: 'stellar', name: 'Stellar Forge', group: 'Military', age: 11, need: 'starbeacon', max: 3, cost: [{ stone: 700, gold: 1500 }, { stone: 900, gold: 2200 }, { stone: 1200, gold: 3000 }], role: 'Damage', what: 'Weapons forged in a captured star.', help: 'Every defender, tower and drone deals +15% damage per level.', tip: 'The last word in firepower.' },
+  { id: 'targeting', name: 'Orbital Targeting', group: 'Defense', age: 8, need: 'orbital', max: 2, cost: [{ stone: 400, gold: 700 }, { stone: 600, gold: 1100 }], role: 'Towers', what: 'Satellites that spot for every tower.', help: 'Every tower reaches 1 tile further per level, and Orbital Beacons strike 1 second sooner.', tip: 'Covers the whole town from a few pylons.' },
+  { id: 'beacon', name: 'Beacon Network', group: 'Defense', age: 6, need: 'laser', max: 1, cost: [{ stone: 250, gold: 450 }], role: 'Lasers', what: 'Relay lenses between the pylons.', help: 'Laser Towers reach 2 tiles further and fire 20% faster.', tip: 'A ring of networked lasers covers the whole town.' }
 ];
+const techCostAt = (t, lv) => t.cost[Math.min(lv, t.cost.length - 1)];
+
 const PROMO_COST = { food: 40, gold: 45 };
 const PROMO_LVL = 5;
 const SMITH_COST = [{ gold: 80, stone: 40 }, { gold: 160, stone: 90 }, { gold: 300, stone: 150 }];
@@ -307,6 +360,7 @@ const SPEC = {
   elk:     { bw: .34, bh: .34, bd: .62, ly: .3, hw: .28, body: 0x8a6a4a, belly: 0xb79a78, leg: 0x5a4030, sn: { w: .12, h: .1, l: .16, c: 0x6e5440 } },
   owl:     { bw: .3, bh: .36, bd: .28, ly: .12, hw: .3, body: 0x8a7458, belly: 0xe8dcc4, leg: 0xd9a24a, sn: { w: .08, h: .07, l: .08, c: 0xf2b134 } },
   troll:   { bw: .5, bh: .46, bd: .56, ly: .22, hw: .38, body: 0x5e7a5a, belly: 0x8aa082, leg: 0x3e5240, sn: { w: .18, h: .12, l: .12, c: 0x7f9a7a }, eye: 0xffb13a },
+  drake:   { bw: .34, bh: .3, bd: .7, ly: .22, hw: .3, body: 0x7a1f2b, belly: 0xb8473a, leg: 0x3a1016, sn: { w: .12, h: .1, l: .22, c: 0x5a1520 }, eye: 0xffd23a },
   warbear: { bw: .42, bh: .36, bd: .52, ly: .16, hw: .34, body: 0x40302a, belly: 0x5a443a, leg: 0x2a1d18, sn: { w: .16, h: .12, l: .1, c: 0x8a6a50 }, eye: 0xff4a3a }
 };
 
@@ -389,6 +443,10 @@ function makeAnimal(sp) {
       box(g, bw / 2 + 0.02, ly + 0.1, -0.2, 0.12, 0.12, 0.7, 0x5a3a22); box(g, bw / 2 - 0.02, ly + 0.08, -0.45, 0.2, 0.2, 0.22, 0x6c737a);
       box(g, -bw / 2 - 0.02, ly + bh - 0.1, -bd / 2 - 0.02, bw + 0.04, 0.12, bd + 0.04, 0x3e5240);
       break;
+    case 'drake':
+      both(s => { box(head, s * (hw / 2 - 0.04) - 0.03, hw, 0.02, 0.06, 0.18, 0.05, 0x3a1016); const w = box(g, s > 0 ? bw / 2 : -bw / 2 - 0.9, ly + bh - 0.04, -0.2, 0.9, 0.04, 0.5, 0x5a1520); w.userData.wing = s; (g.userData.wings = g.userData.wings || []).push(w); });
+      box(g, -0.05, ly + 0.08, -bd / 2 - 0.5, 0.1, 0.1, 0.55, S.body); box(g, -0.1, ly + 0.1, -bd / 2 - 0.62, 0.2, 0.08, 0.14, 0x3a1016);
+      break;
     case 'wolf':
       both(s => box(head, s * (hw / 2 - 0.05) - 0.04, hw, 0.03, 0.08, 0.13, 0.05, S.body));
       box(g, -0.05, ly + 0.12, -bd / 2 - 0.26, 0.1, 0.12, 0.3, 0x666d75);
@@ -419,7 +477,7 @@ function makeAnimal(sp) {
 }
 
 function addGear(g, role, sp) {
-  const S = SPEC[sp], head = g.userData.head, hw = S.hw;
+  const S = SPEC[sp], head = g.userData.head, hw = S.hw, both = fn => { fn(-1); fn(1); };
   if (role === 'archer') {
     box(head, -hw / 2 - 0.02, hw - 0.02, -0.02, hw + 0.04, 0.07, hw * 0.9 + 0.04, 0x3f7d46);
     box(g, -S.bw / 2 - 0.06, S.ly + 0.02, -0.05, 0.04, 0.34, 0.04, 0x7b5232);
@@ -447,6 +505,23 @@ function addGear(g, role, sp) {
     box(head, -hw / 2 - 0.03, hw - 0.02, -0.03, hw + 0.06, 0.06, hw * 0.9 + 0.06, 0x1f8a70);
     box(head, -0.05, hw + 0.04, 0.02, 0.1, 0.16, 0.1, 0x1f8a70);
     box(g, S.bw / 2 + 0.06, S.ly, 0.05, 0.04, 0.8, 0.04, 0x7b5232); box(g, S.bw / 2 + 0.03, S.ly + 0.8, 0.02, 0.1, 0.1, 0.1, 0xe0b24a, LAMP);
+  } else if (role === 'mech') {   // a walker frame around the panda
+    box(g, -S.bw / 2 - 0.08, S.ly - 0.02, -S.bd / 2 - 0.06, S.bw + 0.16, S.bh + 0.1, S.bd + 0.12, 0x2f3b4a);
+    box(g, -S.bw / 2 - 0.1, S.ly + S.bh * 0.5, -S.bd / 2 - 0.08, S.bw + 0.2, 0.08, S.bd + 0.16, 0xffb347);
+    both(s => { box(g, s * (S.bw / 2 + 0.12) - 0.08, S.ly + S.bh - 0.05, -0.1, 0.16, 0.16, 0.5, 0x1b2430); box(g, s * (S.bw / 2 + 0.12) - 0.04, S.ly + S.bh - 0.01, 0.38, 0.08, 0.08, 0.06, 0xff7a2a, LAMP); });
+    box(head, -hw / 2 - 0.03, hw - 0.03, -0.03, hw + 0.06, 0.1, hw * 0.9 + 0.06, 0x2f3b4a); box(head, -0.12, hw * 0.5, hw * 0.9 - 0.02, 0.24, 0.06, 0.03, 0xff7a2a, LAMP);
+  } else if (role === 'dropship' || role === 'swarm' || role === 'warden' || role === 'starship' || role === 'drone') {
+    const C = { dropship: [0xe8ecf4, 0x5c6fff, 0xc3d0ff], swarm: [0x1f2a2a, 0x19e6a0, 0x7fffd4], warden: [0x3a2a5a, 0xb060ff, 0xe6c7ff], starship: [0xf6f1ff, 0xffd36b, 0xffffff], drone: [0xf6f1ff, 0xffd36b, 0xffffff] }[role];
+    for (const p of g.userData.legs) p.visible = false;
+    const L = role === 'starship' ? 0.5 : role === 'dropship' ? 0.3 : 0.12, W = role === 'swarm' || role === 'drone' ? 0.06 : 0.14;
+    box(g, -S.bw / 2 - W, S.ly - 0.3, -S.bd / 2 - L, S.bw + W * 2, 0.18, S.bd + L * 2, C[0]);
+    box(g, -S.bw / 2 - W + 0.04, S.ly - 0.14, -S.bd / 2 - L + 0.04, S.bw + W * 2 - 0.08, 0.06, S.bd + L * 2 - 0.08, C[1]);
+    both(s => box(g, s * (S.bw / 2 + W + 0.12) - 0.1, S.ly - 0.4, -0.12, 0.2, 0.1, 0.24, C[2], LAMP));
+    if (role === 'starship') { box(g, -0.08, S.ly - 0.26, S.bd / 2 + 0.5, 0.16, 0.12, 0.5, C[1]); both(s => box(g, s * 0.5 - 0.04, S.ly - 0.3, -S.bd / 2 - 0.5, 0.08, 0.3, 0.3, C[1])); }
+    if (role === 'swarm') for (let k = 0; k < 6; k++) box(g, rnd(-0.4, 0.3), S.ly + rnd(0.1, 0.5), rnd(-0.4, 0.3), 0.05, 0.05, 0.05, C[1], LAMP);
+    if (role === 'warden') box(g, -S.bw / 2 - 0.2, S.ly + S.bh + 0.1, -S.bd / 2 - 0.2, S.bw + 0.4, 0.04, S.bd + 0.4, C[2], LAMP);
+    box(g, S.bw / 2 + W - 0.02, S.ly + 0.05, -0.1, 0.05, 0.05, 0.55, 0x2a3350); box(g, S.bw / 2 + W - 0.04, S.ly + 0.04, 0.42, 0.09, 0.09, 0.08, C[2], LAMP);
+    box(head, -hw / 2 - 0.02, hw - 0.02, -0.02, hw + 0.04, 0.08, hw * 0.9 + 0.04, C[0]);
   } else if (role === 'skiff') {   // the fox sits in a hovering skiff: hull below, canopy ring, thruster glow
     for (const p of g.userData.legs) p.visible = false;
     box(g, -S.bw / 2 - 0.12, S.ly - 0.3, -S.bd / 2 - 0.16, S.bw + 0.24, 0.16, S.bd + 0.36, 0xdfe6f0);
@@ -627,6 +702,49 @@ function buildModel(b) {
       g.add(tur); b.turret = tur;
       break;
     }
+    case 'reactor': {
+      box(g, -0.95, 0, -0.95, 1.9, 0.3, 1.9, 0x2f3b4a);
+      [[0.8, 0.5], [0.62, 0.4], [0.4, 0.3]].forEach(([s, h], k) => box(g, -s, 0.3 + k * 0.45, -s, s * 2, h, s * 2, k % 2 ? 0x1b2430 : 0x2f3b4a));
+      box(g, -0.22, 0.45, -0.22, 0.44, 1.1, 0.44, 0xff7a2a, LAMP);
+      [[-0.9, 0], [0.7, 0], [0, -0.9], [0, 0.7]].forEach(([x, z]) => { box(g, x, 0.3, z, 0.2, 0.9, 0.2, 0x1b2430); box(g, x + 0.05, 1.2, z + 0.05, 0.1, 0.3, 0.1, 0xffb347, LAMP); });
+      box(g, -0.3, 1.7, -0.3, 0.6, 0.08, 0.6, 0xffb347);
+      break;
+    }
+    case 'orbital': {
+      box(g, -0.4, 0, -0.4, 0.8, 0.14, 0.8, 0xe8ecf4);
+      box(g, -0.1, 0.14, -0.1, 0.2, 1.1, 0.2, 0x2a3350);
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z]) => box(g, x * 0.3 - 0.04, 0.14, z * 0.3 - 0.04, 0.08, 0.6, 0.08, 0xc3d0ff));
+      const tur = new THREE.Group(); tur.position.set(0, 1.24, 0);
+      box(tur, -0.45, 0, -0.45, 0.9, 0.08, 0.9, 0xe8ecf4); box(tur, -0.32, 0.08, -0.32, 0.64, 0.08, 0.64, 0x5c6fff); box(tur, -0.06, 0.16, -0.06, 0.12, 0.3, 0.12, 0xc3d0ff, LAMP);
+      g.add(tur); b.turret = tur; (g.userData.spin = g.userData.spin || []).push(tur);
+      break;
+    }
+    case 'nanoforge': {
+      box(g, -0.42, 0, -0.42, 0.84, 0.3, 0.84, 0x1f2a2a);
+      [[-0.34, -0.34], [0.14, -0.34], [-0.34, 0.14], [0.14, 0.14]].forEach(([x, z]) => box(g, x, 0.3, z, 0.2, 0.7, 0.2, 0x0f1a1a));
+      box(g, -0.3, 0.55, -0.3, 0.6, 0.12, 0.6, 0x19e6a0, LAMP); box(g, -0.3, 0.95, -0.3, 0.6, 0.12, 0.6, 0x19e6a0, LAMP);
+      box(g, -0.12, 0.3, -0.12, 0.24, 0.9, 0.24, 0x7fffd4, LAMP);
+      break;
+    }
+    case 'quantum': {
+      box(g, -0.36, 0, -0.36, 0.72, 0.12, 0.72, 0x3a2a5a);
+      [[0.22, 0.9], [0.16, 0.7], [0.1, 0.5]].forEach(([s, h], k) => box(g, -s, 0.12 + k * 0.75, -s, s * 2, h, s * 2, k % 2 ? 0x22183a : 0x3a2a5a));
+      [0.5, 1.0, 1.5].forEach(y => box(g, -0.3, y, -0.3, 0.6, 0.05, 0.6, 0xb060ff, LAMP));
+      const tur = new THREE.Group(); tur.position.set(0, 2.1, 0);
+      box(tur, -0.12, 0, -0.12, 0.24, 0.24, 0.24, 0xe6c7ff, LAMP);
+      g.add(tur); b.turret = tur; (g.userData.spin = g.userData.spin || []).push(tur);
+      break;
+    }
+    case 'starbeacon': {
+      box(g, -0.95, 0, -0.95, 1.9, 0.2, 1.9, 0x3a3f66);
+      box(g, -0.55, 0.2, -0.55, 1.1, 0.25, 1.1, 0xf6f1ff);
+      box(g, -0.2, 0.45, -0.2, 0.4, 2.4, 0.4, 0xf6f1ff); box(g, -0.08, 2.85, -0.08, 0.16, 0.5, 0.16, 0xffd36b, LAMP);
+      [[-0.85, -0.85], [0.65, -0.85], [-0.85, 0.65], [0.65, 0.65]].forEach(([x, z]) => box(g, x, 0.2, z, 0.2, 0.5, 0.2, 0xffd36b, LAMP));
+      const ring = new THREE.Group(); ring.position.set(0, 1.6, 0);
+      [0, 1, 2, 3].forEach(k => { const a = k / 4 * Math.PI * 2; box(ring, Math.cos(a) * 0.6 - 0.06, 0, Math.sin(a) * 0.6 - 0.06, 0.12, 0.12, 0.12, 0xffffff, LAMP); });
+      g.add(ring); (g.userData.spin = g.userData.spin || []).push(ring);
+      break;
+    }
     case 'skyscraper': {
       const h1 = hash(b.i * 3, b.j * 5);
       box(g, -0.9, 0, -0.9, 1.8, 0.2, 1.8, 0x8a929c);
@@ -783,6 +901,11 @@ const ICONS = {
   tower: [[24, 30, 8, 16, 0xb9bfc5, 0x9aa1a8], [24, 16, 11, 3, 0xc6ccd1, 0xc6ccd1]],
   ballista: [[24, 30, 8, 16, 0xb9bfc5, 0x9aa1a8], [24, 16, 11, 3, 0xc6ccd1, 0xc6ccd1], [24, 12, 6, 2, 0x7b5232, 0x5a3a22]],
   cannon: [[24, 31, 10, 13, 0x6c737a, 0x6c737a], [24, 18, 12, 3, 0xe3b44e, 0xb98c2a], [24, 13, 4, 5, 0x25282c, 0x25282c]],
+  reactor: [[24, 30, 20, 8, 0x2f3b4a, 0x1b2430], [24, 22, 12, 6, 0x2f3b4a, 0x1b2430], [24, 15, 5, 8, 0xff7a2a, 0xff7a2a]],
+  orbital: [[24, 32, 10, 5, 0xe8ecf4, 0xc3d0ff], [24, 20, 4, 14, 0x2a3350, 0x1b2430], [24, 12, 16, 4, 0xe8ecf4, 0x5c6fff]],
+  nanoforge: [[24, 32, 14, 5, 0x1f2a2a, 0x0f1a1a], [24, 22, 8, 12, 0x7fffd4, 0x19e6a0], [24, 17, 12, 3, 0x19e6a0, 0x19e6a0]],
+  quantum: [[24, 33, 12, 4, 0x3a2a5a, 0x22183a], [24, 20, 6, 16, 0x3a2a5a, 0x22183a], [24, 8, 5, 5, 0xe6c7ff, 0xb060ff]],
+  starbeacon: [[24, 32, 18, 6, 0x3a3f66, 0x2a2f4d], [24, 16, 6, 18, 0xf6f1ff, 0xd8d2e8], [24, 6, 4, 6, 0xffd36b, 0xffd36b]],
   skyscraper: [[24, 34, 14, 6, 0xdfe6f0, 0xb9c3cf], [24, 24, 12, 10, 0xdfe6f0, 0xb9c3cf], [24, 14, 9, 10, 0xdfe6f0, 0xb9c3cf], [24, 10, 2, 5, 0x2cc4d8, 0x2cc4d8]],
   laser: [[24, 32, 10, 5, 0x8a929c, 0x6f777f], [24, 18, 5, 16, 0xdfe6f0, 0xb9c3cf], [24, 12, 8, 5, 0x3b4a5a, 0x2b3744], [24, 9, 4, 3, 0x5cf0ff, 0x5cf0ff]],
   skyport: [[24, 30, 20, 5, 0x3b4a5a, 0x2b3744], [24, 28, 10, 2, 0x7fe0ff, 0x7fe0ff], [32, 20, 5, 10, 0xdfe6f0, 0xb9c3cf], [18, 18, 6, 3, 0xdfe6f0, 0xb9c3cf]],
@@ -805,7 +928,7 @@ function unitIconSVG(sp) {
 /* ===================== game state ===================== */
 const G = {
   res: { wood: 0, stone: 0, food: 0, gold: 0 }, age: 0, t: 0, wave: 0, nextWave: 90, speed: 1, paused: true, over: false,
-  smith: 0, tech: { armor: 0, farm: 0, tools: 0 }, diff: 'normal', threat: 0, spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 0, keepB: null, kills: 0, sel: null, build: null, popCap: 5, selU: [], cmd: null
+  smith: 0, tech: {}, diff: 'normal', threat: 0, spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 0, keepB: null, kills: 0, sel: null, build: null, popCap: 5, selU: [], cmd: null
 };
 const buildings = [], units = [], enemies = [], shots = [], parts = [];
 let bid = 1;
@@ -813,7 +936,14 @@ const TGT = { wood: 260, stone: 140, food: 200, gold: 80 };
 const dist2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const afford = c => Object.keys(c).every(k => G.res[k] >= c[k]);
 const pay = c => { for (const k in c) G.res[k] -= c[k]; };
-const dmgMult = () => 1 + 0.2 * G.smith;
+const dmgMult = () => (1 + 0.2 * G.smith) * (1 + 0.15 * ((G.tech && G.tech.stellar) || 0));
+const TL = id => (G.tech && G.tech[id]) || 0;   // tech level
+const towerDmgMult = () => 1 + 0.15 * TL('siegecraft');
+const towerRange = def => def.range + 0.5 * TL('watchfires') + TL('targeting') + (def.shot === 'laser' ? 2 * TL('beacon') : 0);
+const uRange = u => u.def.range + (u.def.shot && u.team === 0 ? 0.5 * TL('fletching') : 0);
+const incomeMult = (b, k) => (1 + 0.3 * TL('automata')) * (1 + 0.25 * TL('fusion')) * (k === 'food' ? seasonFood() * (1 + 0.25 * TL('farm')) : 1) * (b.type === 'market' && k === 'gold' ? 1 + (0.2 / 0.45) * TL('trade') : 1) * (b.type === 'quarry' && k === 'stone' ? 1 + TL('quarrying') : 1);
+function bMaxHp(def) { if (def.wall) return Math.round(def.hp * (1 + 0.25 * TL('walls'))); if (def.plant) return def.hp; return Math.round((def.hp + (def.cat === 'none' ? 600 * G.age : 0)) * (1 + 0.15 * TL('masonry'))); }
+function refreshBuildingHp() { for (const b of buildings) { const m = bMaxHp(b.def); if (m !== b.maxhp) { const r = b.hp / b.maxhp; b.maxhp = m; b.hp = Math.min(m, m * r); if (b.hp < b.maxhp - 0.5) showBar(b); } } }
 const groundAt = (x, z) => { const i = Math.round(x), j = Math.round(z); return inMap(i, j) ? Math.max(0, topY[i][j]) : 0; };
 function turnTo(cur, target, rate) { let d = target - cur; d = Math.atan2(Math.sin(d), Math.cos(d)); return cur + clamp(d, -rate, rate); }
 function nearest(list, x, z, maxD, filter) {
@@ -854,7 +984,8 @@ function updateParts(dt) {
 const SHOT = {
   arrow: { c: 0x6b4a2f, s: [0.05, 0.05, 0.3], sp: 15 }, bolt: { c: 0xdfe4e8, s: [0.07, 0.07, 0.55], sp: 19 },
   ball: { c: 0x25282c, s: [0.22, 0.22, 0.22], sp: 11 }, bullet: { c: 0xffd36b, s: [0.08, 0.08, 0.2], sp: 26, basic: true },
-  stone: { c: 0x9aa0a6, s: [0.12, 0.12, 0.12], sp: 10 }, laser: { c: 0x5cf0ff, s: [0.06, 0.06, 1.3], sp: 55, basic: true }
+  stone: { c: 0x9aa0a6, s: [0.12, 0.12, 0.12], sp: 10 }, laser: { c: 0x5cf0ff, s: [0.06, 0.06, 1.3], sp: 55, basic: true },
+  orbital: { c: 0xfff1a8, s: [0.16, 0.16, 0.16], sp: 42, basic: true }, quantum: { c: 0xd49cff, s: [0.08, 0.08, 0.9], sp: 50, basic: true }
 };
 function shoot(src, tgt, kindName, dmg, splash, fy) {
   const S = SHOT[kindName];
@@ -1011,7 +1142,8 @@ function refreshWalls(i, j) {
 }
 function placeBuilding(type, ai, aj, instant) {
   const def = BDEF[type];
-  const b = { id: bid++, type, def, i: ai, j: aj, hp: def.hp, maxhp: def.hp, progress: instant ? 1 : 0, done: !!instant, builders: 0, cool: 0, group: null, turret: null, team: 0 };
+  const mh = bMaxHp(def);
+  const b = { id: bid++, type, def, i: ai, j: aj, hp: mh, maxhp: mh, progress: instant ? 1 : 0, done: !!instant, builders: 0, cool: 0, group: null, turret: null, team: 0 };
   const [cx, cz] = centerOf(def, ai, aj);
   b.x = cx; b.z = cz; b.y = Math.max(0, topY[ai][aj]);
   b.hgt = def.size === 3 ? 2.4 : def.wall ? 0.9 : def.range ? 1.4 : def.size === 2 ? 1 : 0.9;
@@ -1107,15 +1239,20 @@ const ABIL = {
   musket: { name: 'Aimed Shot', cd: 18, desc: 'One shot for 4x damage.' },
   lancer: { name: 'Stampede', cd: 20, desc: 'Charges 3 tiles ahead, hitting raiders in the way for 1.6x damage and shoving them aside.' },
   sage: { name: 'Hoot of Courage', cd: 24, desc: 'Every defender within 4 tiles heals 30% of its health.' },
-  skiff: { name: 'Strafing Run', cd: 16, desc: 'A beam sweep that hits every raider within 5 tiles for 1.2x damage.' }
+  skiff: { name: 'Strafing Run', cd: 16, desc: 'A beam sweep that hits every raider within 5 tiles for 1.2x damage.' },
+  mech: { name: 'Shockwave', cd: 18, desc: 'Stamps the ground: every raider within 2.5 tiles takes 2x damage and is shoved back.' },
+  dropship: { name: 'Payload', cd: 20, desc: 'Drops a bomb on the nearest raider for 3x damage in a 3 tile blast.' },
+  swarm: { name: 'Disassemble', cd: 12, desc: 'A burst of 8 shots at once.' },
+  warden: { name: 'Phase Shift', cd: 16, desc: 'Blinks beside the nearest raider and heals 25%.' },
+  starship: { name: 'Nova', cd: 22, desc: 'Everything within 6 tiles takes 2x damage.' }
 };
 function applyStats(u) {
   const d = u.def, L = u.lvl - 1;
-  const arm = u.role === 'worker' ? 1 : 1 + 0.15 * G.tech.armor, el = u.elite ? 1.35 : 1;
+  const arm = u.role === 'worker' ? 1 : (1 + 0.15 * TL('armor')) * (u.role === 'skiff' ? 1 + 0.2 * TL('aero') : 1), el = u.elite ? 1.35 : 1;
   const mh = Math.round(d.hp * (1 + 0.14 * L) * (u.trait === 'sturdy' ? 1.15 : 1) * arm * el);
   u.hp = Math.min(mh, u.hp + (mh - (u.maxhp || mh))); u.maxhp = mh;
   u.dmgM = (1 + 0.1 * L) * (u.trait === 'keen' ? 1.12 : 1) * (u.elite ? 1.3 : 1);
-  u.speed = d.speed * (u.trait === 'swift' ? 1.12 : 1) * (1 + 0.012 * L) * (u.elite ? 1.08 : 1);
+  u.speed = d.speed * (u.trait === 'swift' ? 1.12 : 1) * (1 + 0.012 * L) * (u.elite ? 1.08 : 1) * (u.role === 'worker' ? 1 + 0.1 * TL('carts') : (1 + 0.08 * TL('drill')) * (u.role === 'skiff' ? 1 + 0.2 * TL('aero') : 1));
 }
 const badgeMats = {};
 function badgeFor(l, elite) {
@@ -1144,7 +1281,7 @@ function setBadge(u) {
 }
 function grantXP(u, n) {
   if (!u || u.dead || u.team !== 0 || u.lvl >= MAXLVL) return;
-  u.xp += n;
+  u.xp += TL('veterans') >= 2 && u.role !== 'worker' ? Math.ceil(n * 1.5) : n;
   while (u.lvl < MAXLVL && u.xp >= xpNeed(u.lvl)) {
     u.xp -= xpNeed(u.lvl); u.lvl++;
     applyStats(u); u.hp = u.maxhp; dropBar(u);
@@ -1162,7 +1299,7 @@ function useAbility(u) {
   const d = u.def, dmg = d.dmg * dmgMult() * u.dmgM;
   let used = false;
   if (u.role === 'archer' || u.role === 'musket') {
-    const foes = enemies.filter(e => !e.dead && dist2(u, e) <= d.range + 1).sort((a, b) => dist2(u, a) - dist2(u, b));
+    const foes = enemies.filter(e => !e.dead && dist2(u, e) <= uRange(u) + 1).sort((a, b) => dist2(u, a) - dist2(u, b));
     if (u.role === 'archer') foes.slice(0, 4).forEach(e => { shoot(u, e, 'arrow', dmg * 1.4, 0, 0.5); used = true; });
     else if (foes[0]) { shoot(u, foes[0], 'bullet', dmg * 4, 0, 0.5); used = true; }
   } else if (u.role === 'guard') {
@@ -1179,6 +1316,21 @@ function useAbility(u) {
       const sp = validSpot(u.x + fx * 3, u.z + fz * 3); u.x = sp[0]; u.z = sp[1]; u.path = null;
       puff(u.x, 0.4, u.z, 0xd9c9a0, 14, 2.6, 0.5, 0.12); used = true;
     }
+  } else if (u.role === 'mech') {   // Shockwave
+    const foes = enemies.filter(e => !e.dead && dist2(u, e) <= 2.5);
+    if (foes.length) { foes.forEach(e => { hurt(e, dmg * 2, u); const ax = e.x - u.x, az = e.z - u.z, al = Math.hypot(ax, az) || 1; if (!e.fly) { const sp = validSpot(e.x + ax / al * 1.8, e.z + az / al * 1.8); e.x = sp[0]; e.z = sp[1]; e.path = null; } }); puff(u.x, 0.3, u.z, 0xffb347, 18, 3, 0.5, 0.14); used = true; }
+  } else if (u.role === 'dropship') {   // Payload
+    const foes = enemies.filter(e => !e.dead && dist2(u, e) <= 7).sort((a, b) => dist2(u, a) - dist2(u, b));
+    if (foes[0]) { shoot(u, foes[0], 'orbital', dmg * 3, 3, 1.2); used = true; }
+  } else if (u.role === 'swarm') {   // Disassemble
+    const foes = enemies.filter(e => !e.dead && dist2(u, e) <= uRange(u) + 1).sort((a, b) => dist2(u, a) - dist2(u, b));
+    if (foes[0]) { for (let k = 0; k < 8; k++) shoot(u, foes[k % foes.length], 'laser', dmg, 0, 1.1); used = true; }
+  } else if (u.role === 'warden') {   // Phase Shift
+    const t = nearest(enemies, u.x, u.z, 20);
+    if (t) { puff(u.x, 1, u.z, 0xd49cff, 10, 1.5, 0.5, 0.1); u.x = t.x + rnd(-1, 1); u.z = t.z + rnd(-1, 1); u.hp = Math.min(u.maxhp, u.hp + u.maxhp * 0.25); dropBar(u); if (u.hp < u.maxhp) showBar(u); puff(u.x, 1, u.z, 0xd49cff, 10, 1.5, 0.5, 0.1); used = true; }
+  } else if (u.role === 'starship') {   // Nova
+    const foes = enemies.filter(e => !e.dead && dist2(u, e) <= 6);
+    if (foes.length) { foes.forEach(e => hurt(e, dmg * 2, u)); puff(u.x, 1.2, u.z, 0xfff1a8, 24, 4, 0.7, 0.16); used = true; }
   } else if (u.role === 'skiff') {   // Strafing Run: beam every raider nearby
     const foes = enemies.filter(e => !e.dead && dist2(u, e) <= 5);
     if (foes.length) { foes.forEach(e => shoot(u, e, 'laser', dmg * 1.2, 0, 1.2)); used = true; }
@@ -1186,7 +1338,7 @@ function useAbility(u) {
     const allies = units.filter(o => !o.dead && o.role !== 'worker' && dist2(u, o) <= 4 && o.hp < o.maxhp);
     if (allies.length) { allies.forEach(o => { o.hp = Math.min(o.maxhp, o.hp + o.maxhp * 0.3); dropBar(o); if (o.hp < o.maxhp) showBar(o); puff(o.x, o.y + 0.9, o.z, 0x7be07b, 6, 1.2, 0.6, 0.1); }); used = true; }
   }
-  if (used) { u.abCd = ABIL[u.role].cd; u.atk = 0.25; sfx('ability', u.x, u.z); }
+  if (used) { u.abCd = ABIL[u.role].cd * (1 - 0.15 * TL('banners')) * (1 - 0.15 * TL('quantumcore')); u.atk = 0.25; sfx('ability', u.x, u.z); }
   return used;
 }
 function unitDmg(u) { return u.def.dmg * dmgMult() * u.dmgM * (u.trait === 'lucky' && Math.random() < 0.12 ? 2 : 1); }
@@ -1199,15 +1351,16 @@ function healUnit(u, amt, fx) {
   if (u.hp >= u.maxhp - 0.01) dropBar(u);
 }
 function healSystem(dt) {
-  const huts = buildings.filter(b => b.type === 'infirmary' && b.done), kp = G.keepB;
+  const huts = buildings.filter(b => b.def.heal && b.done), kp = G.keepB;
   for (const u of units) {
     if (u.dead || u.hp >= u.maxhp) continue;
     let rate = 0, fx = false;
     const calm = G.t - (u.lastHit || -99) > 6;
     if (calm) { rate += u.maxhp * 0.004; if (kp && dist2(u, kp) < 7) rate += u.maxhp * 0.012; }
     if (kp && dist2(u, kp) < 4.5) { rate += 2; fx = true; }
-    for (const h of huts) if (dist2(u, h) <= h.def.heal) { rate += 3; fx = true; break; }
-    if (rate > 0) healUnit(u, rate * dt, fx);
+    for (const h of huts) if (dist2(u, h) <= h.def.heal) { rate += h.type === 'nanoforge' ? 6 : 3; fx = true; break; }
+    if (u.role !== 'worker' && TL('nano')) rate += u.maxhp * 0.01 * TL('nano');
+    if (rate > 0) healUnit(u, rate * dt * (1 + 0.4 * TL('medicine')), fx);
   }
   for (const b of buildings) {
     if (!b.done || b.hp >= b.maxhp) continue;
@@ -1238,7 +1391,7 @@ function unstick(u) {
 /* Last line of defence: any animal that wants to be somewhere but has not moved for 6 seconds is reset
    (jobs released, path and bans cleared, nudged to a free spot) and the event is logged for the Menu's diagnostics. */
 const DIAG = { kicks: 0, log: [], t: 0 };
-const MOVING_STATES = { toNode: 1, toDrop: 1, toSite: 1, toRepair: 1, toFarm: 1, goto: 1, flee: 1 };
+const MOVING_STATES = { toNode: 1, toDrop: 1, toSite: 1, toRepair: 1, toFarm: 1, goto: 1 };   // fleeing settlers hide on purpose; the 12 s brave rule covers them
 function wantsToMove(u) {
   if (u.role === 'worker') return !!MOVING_STATES[u.state];
   if (u.order) return true;
@@ -1501,6 +1654,7 @@ function animateUnit(u, dt) {
   const bob = u.moved ? Math.abs(Math.sin(u.walk)) * 0.05 : (u.state === 'gather' || u.state === 'build') ? Math.abs(Math.sin(G.t * 9)) * 0.07 : 0;
   m.position.y = u.y + bob;
   if (u.atk > 0) { u.atk -= dt; ud.body.position.z = Math.sin(clamp(u.atk / 0.25, 0, 1) * Math.PI) * 0.18; } else ud.body.position.z = 0;
+  if (ud.wings) for (const w of ud.wings) w.rotation.z = w.userData.wing * Math.sin(G.t * 9 + (u.slot || 0)) * 0.5;
   if (ud.tool) {   // settlers swing a tool while gathering, building, repairing or tending
     const working = u.state === 'gather' || u.state === 'build' || u.state === 'repair' || u.state === 'farm';
     ud.tool.visible = working;
@@ -1541,7 +1695,7 @@ function findFarm(u) {
   return best;
 }
 function findRepair(u) {
-  if (enemies.some(e => !e.dead)) return null;
+  if (TL('repair') < 2 && enemies.some(e => !e.dead)) return null;
   let best = null, bd = 45;
   for (const b of buildings) {
     if (!b.done || b.hp >= b.maxhp * 0.9 || (b.repairers || 0) >= 2 || !reachableNear(b)) continue;
@@ -1678,7 +1832,7 @@ function updateWorker(u, dt) {
       const r = u.rep;
       if (!r || r.dead || r.hp >= r.maxhp) { if (r && r.hp >= r.maxhp) { dropBar(r); grantXP(u, 3); } releaseWorker(u); u.state = 'idle'; u.wait = 0; break; }
       u.face = Math.atan2(r.x - u.x, r.z - u.z);
-      r.hp = Math.min(r.maxhp, r.hp + r.maxhp * 0.05 * (1 + 0.06 * (u.lvl - 1)) * dt);
+      r.hp = Math.min(r.maxhp, r.hp + r.maxhp * 0.05 * (1 + 0.06 * (u.lvl - 1)) * (1 + TL('repair')) * dt);
       if (Math.random() < dt * 2) { puff(r.x + rnd(-0.3, 0.3), r.y + 0.4, r.z + rnd(-0.3, 0.3), 0x7be07b, 1, 0.8, 0.4, 0.06); sfx('hammer', r.x, r.z); }
       break;
     }
@@ -1746,7 +1900,7 @@ function assignRally() {   // called once per step before soldiers think
 }
 function engage(u, t, dt, forced) {
   const d = u.def, dd = dist2(u, t);
-  if (dd > d.range * 0.95) {
+  if (dd > uRange(u) * 0.95) {
     const r = moveTo(u, t.x, t.z, dt);
     if (r.unreachable) { if (forced) u.order = null; else { u.tgt = null; u.skip = t; u.skipT = G.t + 3; } }
     return;
@@ -1771,8 +1925,8 @@ function updateSoldier(u, dt) {
   }
   const amove = u.order && u.order.type === 'amove';
   let t = u.tgt;
-  if (!t || t.dead || dist2(u, t) > (u.hold ? d.range + 1 : 13)) {
-    t = u.tgt = nearest(enemies, u.x, u.z, u.hold ? d.range + 0.3 : 10, e => (e !== u.skip || G.t > u.skipT) && (u.hold || amove || Math.hypot(e.x - KX, e.z - KZ) < RAID_DIST + 4));
+  if (!t || t.dead || dist2(u, t) > (u.hold ? uRange(u) + 1 : 13)) {
+    t = u.tgt = nearest(enemies, u.x, u.z, u.hold ? uRange(u) + 0.3 : 10, e => (e !== u.skip || G.t > u.skipT) && (u.hold || amove || Math.hypot(e.x - KX, e.z - KZ) < RAID_DIST + 4));
   }
   if (t) { engage(u, t, dt, false); return; }
   if (amove) {
@@ -1801,7 +1955,7 @@ function makeEnemy(kindName, x, z, mult) {
   const hp = d.hp * mult;
   const e = {
     team: 1, kind: kindName, def: d, x, z, y: groundAt(x, z), hp, maxhp: hp, dmg: d.dmg * (1 + (mult - 1) * 0.6), speed: d.speed * rnd(0.92, 1.08), model,
-    face: 0, walk: rnd(0, 6), atk: 0, cd: rnd(0, 1), hgt: 0.8 * d.scale, barW: 0.5 * d.scale + 0.2, dead: false, retarget: 0, blockT: 0, hitT: 0, moved: false
+    face: 0, walk: rnd(0, 6), atk: 0, cd: rnd(0, 1), hgt: 0.8 * d.scale, barW: 0.5 * d.scale + 0.2, dead: false, retarget: 0, blockT: 0, hitT: 0, moved: false, fly: !!d.fly
   };
   model.userData.u = e;
   model.position.set(x, e.y, z);
@@ -1855,19 +2009,20 @@ function updateTower(b, dt) {
   b.cool -= dt;
   const def = b.def;
   if (b.cool > 0) return;
-  const t = nearest(enemies, b.x, b.z, def.range);
+  const t = nearest(enemies, b.x, b.z, towerRange(def));
   if (!t) { b.cool = 0.2; return; }
-  b.cool = def.rate;
+  b.cool = def.rate * (def.shot === 'laser' && TL('beacon') ? 0.8 : 1) - (def.shot === 'orbital' ? TL('targeting') : 0);
+  if (def.chain) { const R = towerRange(def), foes = enemies.filter(e => !e.dead && dist2(b, e) <= R).sort((p, q) => dist2(b, p) - dist2(b, q)).slice(0, def.chain); foes.forEach(e => shoot(b, e, def.shot, def.dmg * (1 + 0.3 * G.age) * dmgMult() * towerDmgMult(), 0, 1.6)); return; }
   if (b.turret) b.turret.rotation.y = Math.atan2(t.x - b.x, t.z - b.z);
-  shoot(b, t, def.shot, def.dmg * (1 + 0.3 * G.age) * dmgMult(), def.splash, b.y + (b.type === 'tower' ? 1.2 : 1.3) - b.y);
+  shoot(b, t, def.shot, def.dmg * (1 + 0.3 * G.age) * dmgMult() * towerDmgMult(), def.splash, def.shot === 'orbital' ? 9 : b.y + (b.type === 'tower' ? 1.2 : 1.3) - b.y);
 }
 
 /* ===================== waves ===================== */
 function planWave(n) {
-  const cost = { wolf: 1, boar: 3, raccoon: 2, badger: 5, direwolf: 4, troll: 13 };
+  const cost = { wolf: 1, boar: 3, raccoon: 2, badger: 5, direwolf: 4, troll: 13, drake: 7, juggernaut: 30 };
   const opts = ['wolf'];
   if (n >= 2) opts.push('boar'); if (n >= 3) opts.push('raccoon'); if (n >= 4) opts.push('badger');
-  if (n >= 9) opts.push('direwolf', 'direwolf'); if (n >= 14) opts.push('troll'); if (n >= 19) opts.push('troll');
+  if (n >= 9) opts.push('direwolf', 'direwolf'); if (n >= 14) opts.push('troll'); if (n >= 19) opts.push('troll'); if (n >= 22) opts.push('drake', 'drake'); if (n >= 26) opts.push('juggernaut');
   let left = (3 + n * 2.4) * (DIFF[G.diff] || DIFF.normal).count; const list = [];
   if (n % 5 === 0) { list.push('chief'); left -= 8; if (n >= 20) { list.push('troll'); left -= 13; } }
   while (left > 0) { const k = pick(opts); list.push(k); left -= cost[k]; }
@@ -1899,9 +2054,9 @@ function startWave() {
     mk.position.set(p[0], 0, p[1]); scene.add(mk);
     G.markers.push({ mk, until: G.t + 9 + list.length * 0.55 });
   });
-  G.nextWave = G.wave >= TOTAL_WAVES ? Infinity : G.t + clamp(D.gapHi - G.wave * 1.6, D.gapLo, D.gapHi);
+  G.nextWave = G.wave >= TOTAL_WAVES && !G.endless ? Infinity : G.t + clamp(D.gapHi - Math.min(G.wave, 25) * 1.6, D.gapLo, D.gapHi);
   sfx('horn'); setTimeout(() => sfx('howl'), 900);
-  toast(`Raid ${G.wave} of ${TOTAL_WAVES}: ${list.length} raiders from the ${groups.map(compassName).join(' and ')}`, true);
+  toast(`Raid ${G.wave}${G.wave > TOTAL_WAVES ? ' (endless)' : ' of ' + TOTAL_WAVES}: ${list.length} raiders from the ${groups.map(compassName).join(' and ')}`, true);
 }
 function setDifficulty(d, quiet) {
   if (!DIFF[d]) return;
@@ -1912,7 +2067,7 @@ function setDifficulty(d, quiet) {
   if (typeof refreshDiffButtons === 'function') refreshDiffButtons();
 }
 function callEarly() {
-  if (G.over || G.wave >= TOTAL_WAVES || G.nextWave === Infinity) return;
+  if (G.over || (G.wave >= TOTAL_WAVES && !G.endless) || G.nextWave === Infinity) return;
   const left = Math.max(0, G.nextWave - G.t);
   if (left < 5) return;
   G.res.gold += Math.floor(left * 0.7);
@@ -1930,20 +2085,27 @@ function trainUnit(role) {
   if (!afford(d.cost)) return toast('Not enough resources', true);
   pay(d.cost);
   const sp0 = validSpot(bar.x + rnd(-0.4, 0.4), bar.z + 1.5), u = makeUnit(role, sp0[0], sp0[1]);
+  if (TL('veterans') >= 1) { u.lvl = 2; applyStats(u); u.hp = u.maxhp; setBadge(u); }
   puff(u.x, 0.5, u.z, 0xffffff, 5, 1.2, 0.4, 0.1); sfx('spawn', u.x, u.z);
 }
-const carryCap = u => 8 + (u.lvl >> 1) + 2 * G.tech.tools + (u.elite ? 3 : 0);
-function techNext(t) { return G.tech[t.id] >= t.max ? null : t.cost[G.tech[t.id]]; }
-function researchTech(id) {
+const carryCap = u => 8 + (u.lvl >> 1) + 2 * TL('tools') + (u.elite ? 3 : 0);
+function techNext(t) { return TL(t.id) >= t.max ? null : techCostAt(t, TL(t.id)); }
+function researchTech(id, quiet) {
   const t = TECHS.find(x => x.id === id);
-  if (G.age < t.age) return toast(`${t.name} needs ${AGES[t.age].name}`, true);
-  if (t.need && !buildings.some(b => b.type === t.need && b.done)) return toast(`Build a ${BDEF[t.need].name} first`, true);
+  if (!t) return false;
+  if (G.age < t.age) { if (!quiet) toast(`${t.name} needs ${AGES[t.age].name}`, true); return false; }
+  if (t.need && !buildings.some(b => b.type === t.need && b.done)) { if (!quiet) toast(`Build a ${BDEF[t.need].name} first`, true); return false; }
   const c = techNext(t);
-  if (!c) return toast(`${t.name} is fully researched`);
-  if (!afford(c)) return toast('Not enough resources', true);
-  pay(c); G.tech[id]++;
-  if (id === 'armor') for (const u of units) if (!u.dead) { applyStats(u); dropBar(u); }
+  if (!c) { if (!quiet) toast(`${t.name} is fully researched`); return false; }
+  if (!afford(c)) { if (!quiet) toast('Not enough resources', true); return false; }
+  pay(c); G.tech[id] = TL(id) + 1;
+  applyTechEffects(id);
   sfx('done'); toast(`${t.name} level ${G.tech[id]} researched`);
+  return true;
+}
+function applyTechEffects(id) {   // retroactive effects for things that already exist
+  if (['armor', 'carts', 'drill', 'aero'].includes(id)) for (const u of units) if (!u.dead) { applyStats(u); dropBar(u); if (u.hp < u.maxhp) showBar(u); }
+  if (['walls', 'masonry'].includes(id)) refreshBuildingHp();
 }
 const canPromote = u => !u.dead && !u.elite && u.lvl >= PROMO_LVL;
 function promoteUnits(us) {
@@ -1960,7 +2122,7 @@ function promoteUnits(us) {
 }
 function upgradeSmith() {
   if (!buildings.some(b => b.type === 'smith' && b.done)) return toast('Build a Blacksmith first', true);
-  if (G.smith >= 3) return toast('Weapons are fully sharpened');
+  if (G.smith >= 3) return;
   const c = SMITH_COST[G.smith];
   if (!afford(c)) return toast('Not enough resources', true);
   pay(c); G.smith++;
@@ -1972,8 +2134,8 @@ function advanceAge() {
   if (!afford(c)) return toast('Not enough resources to advance', true);
   pay(c); G.age++;
   for (const b of buildings) {
-    if (b.type === 'keep') { b.maxhp = BDEF.keep.hp + 600 * G.age; b.hp = Math.min(b.maxhp, b.hp + b.maxhp * 0.4); }
-    if (b.def.wall) { const r = b.hp / b.maxhp; b.maxhp = b.def.hp; b.hp = b.maxhp * r; if (b.hp < b.maxhp) showBar(b); }
+    if (b.type === 'keep') { b.maxhp = bMaxHp(b.def); b.hp = Math.min(b.maxhp, b.hp + b.maxhp * 0.4); }
+    if (b.def.wall) { const r = b.hp / b.maxhp; b.maxhp = bMaxHp(b.def); b.hp = b.maxhp * r; if (b.hp < b.maxhp) showBar(b); }
     makeBuildingMesh(b);
     if (!b.done) addScaffoldFix(b);
   }
@@ -1986,11 +2148,13 @@ function addScaffoldFix(b) { if (b.scaf) { scene.remove(b.scaf); b.scaf = null; 
 /* ===================== main simulation step ===================== */
 function step(dt) {
   G.t += dt; NAV.budget = 10;
-  G.popCap = BDEF.keep.pop + buildings.reduce((s, b) => s + (b.done && b.def.pop && b.type !== 'keep' ? b.def.pop : 0), 0);
+  G.popCap = BDEF.keep.pop + buildings.reduce((s, b) => s + (b.done && b.def.pop && b.type !== 'keep' ? b.def.pop + (b.type === 'house' ? TL('housing') : b.type === 'skyscraper' ? 3 * TL('housing') : 0) : 0), 0);
   for (const b of buildings) {
     if (!b.done) continue;
-    if (b.def.income) for (const k in b.def.income) G.res[k] += b.def.income[k] * dt * (k === 'food' ? seasonFood() * (1 + 0.25 * G.tech.farm) : 1);
-    if (b.farmers) G.res.food += b.farmers * 0.3 * dt * seasonFood() * (1 + 0.25 * G.tech.farm);
+    if (b.def.income) for (const k in b.def.income) G.res[k] += b.def.income[k] * dt * incomeMult(b, k);
+    if (b.farmers) G.res.food += b.farmers * 0.3 * dt * incomeMult(b, 'food');
+    if (b.def.mend) for (const o of buildings) if (o !== b && o.done && o.hp < o.maxhp && dist2(o, b) <= b.def.heal) { o.hp = Math.min(o.maxhp, o.hp + o.maxhp * b.def.mend * dt); if (o.hp >= o.maxhp) dropBar(o); }
+    if (b.type === 'starbeacon') { b.droneT = (b.droneT || 15) - dt; if (b.droneT <= 0) { b.droneT = 40; const mine = units.filter(u => !u.dead && u.role === 'drone' && u.home2 === b.id).length; if (mine < 4) { const sp0 = validSpot(b.x + rnd(-1, 1), b.z + 1.8), u = makeUnit('drone', sp0[0], sp0[1]); u.home2 = b.id; puff(u.x, 1, u.z, 0xfff1a8, 8, 1.4, 0.6, 0.1); sfx('spawn', u.x, u.z); } } }
     if (b.def.range) updateTower(b, dt);
   }
   // new settlers
@@ -2003,7 +2167,7 @@ function step(dt) {
   // forests regrow slowly
   G.treeT -= dt;
   if (G.treeT <= 0) {
-    G.treeT = 9;
+    G.treeT = 9 / (1 + 0.6 * TL('forestry'));
     const trees = nodes.filter(n => n.type === 'wood');
     if (trees.length && trees.length < 110) {
       const p = pick(trees), i = p.i + rint(-1, 1), j = p.j + rint(-1, 1);
@@ -2016,7 +2180,7 @@ function step(dt) {
     G.rockT = 24;
     const rocks = nodes.filter(n => n.type === 'stone').length, berries = nodes.filter(n => n.type === 'food').length, veins = nodes.filter(n => n.type === 'gold').length;
     const spot = (pred) => { for (let k = 0; k < 40; k++) { const i = rint(3, MAP - 4), j = rint(3, MAP - 4); if (pred(i, j) && !occ[i][j] && !nodeAt[i][j] && tileDist(i, j) > 5 && reachAt(i, j)) return [i, j]; } return null; };
-    if (rocks < 26) { const s = spot((i, j) => kind[i][j] === 'h' || (kind[i][j] === 'g' && tileDist(i, j) > 12)); if (s) { addNode('stone', s[0], s[1], 40); puff(s[0], 0.4, s[1], 0xb1b7bd, 6, 1.2, 0.5, 0.1); } }
+    if (rocks < 26 + 6 * TL('quarrying')) { const s = spot((i, j) => kind[i][j] === 'h' || (kind[i][j] === 'g' && tileDist(i, j) > 12)); if (s) { addNode('stone', s[0], s[1], 40); puff(s[0], 0.4, s[1], 0xb1b7bd, 6, 1.2, 0.5, 0.1); } }
     if (berries < 14) { const s = spot((i, j) => kind[i][j] === 'g'); if (s) addNode('food', s[0], s[1], 20); }
     if (veins < 8 && Math.random() < 0.5) { const s = spot((i, j) => kind[i][j] === 'h' || (kind[i][j] === 'g' && tileDist(i, j) > 14)); if (s) addNode('gold', s[0], s[1], 40); }
   }
@@ -2055,7 +2219,7 @@ function step(dt) {
     if (o.deadT > 0.9) { scene.remove(o.model); list.splice(k, 1); }
   }
   // victory
-  if (!G.over && G.wave >= TOTAL_WAVES && !G.spawnQ.length && !enemies.some(e => !e.dead)) endGame(true);
+  if (!G.over && !G.endless && G.wave >= TOTAL_WAVES && !G.spawnQ.length && !enemies.some(e => !e.dead)) endGame(true);
 }
 
 /* ===================== new game ===================== */
@@ -2070,7 +2234,7 @@ function clearEntities() {
 function newGame() {
   clearEntities();
   genWorld();
-  Object.assign(G, { res: { wood: 140, stone: 30, food: 100, gold: 20 }, age: 0, t: 0, wave: 0, nextWave: (DIFF[G.diff] || DIFF.normal).first, over: false, smith: 0, tech: { armor: 0, farm: 0, tools: 0 }, threat: rnd(0, 6.28), spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 6, kills: 0, sel: null, build: null, selU: [], cmd: null });
+  Object.assign(G, { res: { wood: 140, stone: 30, food: 100, gold: 20 }, age: 0, t: 0, wave: 0, nextWave: (DIFF[G.diff] || DIFF.normal).first, over: false, endless: false, smith: 0, tech: {}, threat: rnd(0, 6.28), spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 6, kills: 0, sel: null, build: null, selU: [], cmd: null });
   resetEnv();
   G.keepB = placeBuilding('keep', KX, KZ, true);
   for (let k = 0; k < 5; k++) makeUnit('worker', KX - 2 + k, KZ + 2.4);
@@ -2526,6 +2690,8 @@ const SFX = {
   arrow: o => noise(o, 0.15, 0.2, 'bandpass', 2400, 900, 2),
   bolt: o => { tone(o, 190, 0.25, 'sawtooth', 0.12, 0, 80); noise(o, 0.12, 0.16, 'bandpass', 1500, 600, 2); },
   ball: o => { tone(o, 110, 0.55, 'sine', 0.5, 0, 34); noise(o, 0.45, 0.5, 'lowpass', 900, 120); },
+  orbital: o => { noise(o, 0.5, 0.5, 'lowpass', 900, 200); tone(o, 70, 0.5, 'sawtooth', 0.25, 0, 30); },
+  quantum: o => { tone(o, 980, 0.18, 'triangle', 0.08, 0, 1600); tone(o, 1400, 0.12, 'sine', 0.05, 0.04, 2200); },
   laser: o => { tone(o, 1400, 0.14, 'sine', 0.07, 0, 300); tone(o, 2200, 0.1, 'triangle', 0.04, 0.02, 500); },
   bullet: o => { noise(o, 0.1, 0.4, 'highpass', 1800, 0); tone(o, 900, 0.08, 'square', 0.08, 0, 200); },
   stone: o => tone(o, 300, 0.1, 'triangle', 0.1, 0, 150),
@@ -2545,7 +2711,7 @@ const SFX = {
   win: o => { [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.G5, NOTE.C6].forEach((f, i) => tone(o, f, 0.5, 'triangle', 0.16, i * 0.16)); },
   lose: o => { [NOTE.A4, NOTE.F5 / 1.26, NOTE.E4, NOTE.A3].forEach((f, i) => tone(o, f, 0.7, 'sawtooth', 0.1, i * 0.3, f * 0.9)); }
 };
-const SFX_GAP = { arrow: 0.06, hit: 0.05, bash: 0.08, coin: 0.25, chop: 0.14, clink: 0.14, hammer: 0.18, die: 0.05, dieFriend: 0.1, bolt: 0.1, stone: 0.08, bullet: 0.06, laser: 0.05, place: 0.05, spawn: 0.1, click: 0.03, done: 0.1, heal: 0.6, ability: 0.1 };
+const SFX_GAP = { arrow: 0.06, hit: 0.05, bash: 0.08, coin: 0.25, chop: 0.14, clink: 0.14, hammer: 0.18, die: 0.05, dieFriend: 0.1, bolt: 0.1, stone: 0.08, bullet: 0.06, laser: 0.05, orbital: 0.3, quantum: 0.05, place: 0.05, spawn: 0.1, click: 0.03, done: 0.1, heal: 0.6, ability: 0.1 };
 function sfx(name, x, z) {
   const c = AUD.ctx;
   if (!c || AUD.mode === 2 || !SFX[name]) return;
@@ -2664,7 +2830,9 @@ const ENEMY_INFO = {
   raccoon: 'Throws stones from range. Kill it before it wears your walls down.', badger: 'Siege ram. Smashes walls and buildings, so keep it away from them.',
   chief: 'Bear Warlord, the boss of the raid. Focus every tower and defender on it.',
   direwolf: 'Dire Wolf: bigger, faster and meaner. Turrets and lancers deal with it best.',
-  troll: 'Troll: a walking siege engine with enormous health. Bombards and knights, and keep settlers well away.'
+  troll: 'Troll: a walking siege engine with enormous health. Bombards and knights, and keep settlers well away.',
+  drake: 'Drake: flies straight over your walls. Towers and flying defenders bring it down.',
+  juggernaut: 'Juggernaut: an endless-mode siege monster. Orbital strikes and starships, or it walks through the town.'
 };
 function statsRow(list) { return '<div class="st">' + list.map(x => `<span>${x}</span>`).join('') + '</div>'; }
 function tipBuilding(def, extra, locked) {
@@ -2698,23 +2866,28 @@ function hideTip() { tipEl.classList.remove('on'); tipEl.dataset.h = ''; }
 let tipHold = 0;
 const SWC = { wood: 'w', stone: 's', food: 'f', gold: 'g' };
 const costHTML = c => Object.keys(c).map(k => `<span data-r="${k}" data-n="${c[k]}"><i class="sw ${SWC[k]}"></i>${c[k]}</span>`).join('');
-const TABS = [{ id: 'town', name: 'Town' }, { id: 'defense', name: 'Defense' }, { id: 'army', name: 'Army' }];
+const TABS = [{ id: 'town', name: 'Town' }, { id: 'defense', name: 'Defense' }, { id: 'army', name: 'Army' }, { id: 'research', name: 'Research' }];
 let curTab = 'town', cards = [];
+const TECH_ICON = { farm: 'farm', tools: 'camp', carts: 'camp', forestry: 'sapling', quarrying: 'quarry', trade: 'market', housing: 'house', medicine: 'infirmary', automata: 'smith', armor: 'smith', drill: 'barracks', fletching: 'tower', veterans: 'barracks', banners: 'barracks', aero: 'skyport', walls: 'wall', siegecraft: 'ballista', watchfires: 'tower', repair: 'camp', masonry: 'quarry', beacon: 'laser', smith: 'smith', fusion: 'reactor', nano: 'nanoforge', quantumcore: 'quantum', stellar: 'starbeacon', targeting: 'orbital' };
+function techIcon(id) { return iconSVG(TECH_ICON[id] || 'smith'); }
 function renderDock() {
   $('tabs').innerHTML = TABS.map(t => `<button class="tab${t.id === curTab ? ' on' : ''}" data-tab="${t.id}">${t.name}</button>`).join('') + '<span class="hint" id="hint">Hover a card to see what it does</span>';
   const list = [];
   for (const k in BDEF) if (BDEF[k].cat === curTab) list.push({ kindOf: 'b', id: k, def: BDEF[k] });
   if (curTab === 'army') {
-    for (const k in UDEF) if (k !== 'worker') list.push({ kindOf: 'u', id: k, def: UDEF[k] });
-    list.push({ kindOf: 'x', id: 'smith', def: { name: 'Sharpen Weapons', cost: SMITH_COST[0], age: 2, blurb: 'Every defender and tower hits 20% harder per level.', role: 'Weapon upgrade', what: 'Pays the smiths to sharpen every weapon in the valley.', help: 'Each level adds +20% damage to every defender and every tower, up to three levels. Needs a finished Blacksmith.', tip: 'Worth buying before the boss raids at 5, 10 and 15.', hp: 0 } });
-    for (const t of TECHS) list.push({ kindOf: 'x', id: t.id, def: { name: t.name, cost: t.cost[0], age: t.age, blurb: t.what, role: t.role, what: t.what, help: t.help, tip: t.tip, hp: 0 } });
+    for (const k in UDEF) if (k !== 'worker' && !UDEF[k].free) list.push({ kindOf: 'u', id: k, def: UDEF[k] });
+  }
+  if (curTab === 'research') {
+    list.push({ kindOf: 'x', id: 'smith', def: { name: 'Sharpen Weapons', cost: SMITH_COST[0], age: 2, need: 'smith', group: 'Military', blurb: 'Every defender and tower hits 20% harder per level.', role: 'Military', what: 'Pays the smiths to sharpen every weapon in the valley.', help: 'Each level adds +20% damage to every defender and every tower, up to three levels. Needs a finished Blacksmith.', tip: 'Worth buying before every boss raid.', hp: 0 } });
+    for (const t of TECHS) list.push({ kindOf: 'x', id: t.id, def: { name: t.name, cost: t.cost[0], age: t.age, need: t.need, group: t.group, blurb: t.what, role: t.group + ' · ' + t.role, what: t.what, help: t.help + (t.need ? ` Needs a ${BDEF[t.need].name}.` : ''), tip: t.tip, hp: 0 } });
+    list.sort((a, b) => (a.def.group > b.def.group ? 1 : a.def.group < b.def.group ? -1 : 0) || a.def.age - b.def.age);
   }
   const box2 = $('cards');
   box2.innerHTML = '';
   cards = list.map(it => {
     const el = document.createElement('button');
     el.className = 'card';
-    el.innerHTML = `<div class="ic">${it.kindOf === 'u' ? unitIconSVG(it.def.sp) : it.kindOf === 'x' ? iconSVG(it.id === 'farm' ? 'farm' : it.id === 'tools' ? 'camp' : 'smith') : iconSVG(it.id)}</div><div class="nm">${it.def.name}</div><div class="cs">${costHTML(it.def.cost)}</div><span class="lk"></span>`;
+    el.innerHTML = `<div class="ic">${it.kindOf === 'u' ? unitIconSVG(it.def.sp) : it.kindOf === 'x' ? techIcon(it.id) : iconSVG(it.id)}</div><div class="nm">${it.def.name}</div><div class="cs">${costHTML(it.def.cost)}</div><span class="lk"></span>`;
     el.addEventListener('click', () => onCard(it));
     const showCard = () => {
       const d = it.def, r = el.getBoundingClientRect(), locked = d.age !== undefined && G.age < d.age ? `Unlocks in the ${AGES[d.age].name}` : '';
@@ -2748,18 +2921,19 @@ function updateDock(force) {
     let cost = d.cost, lock = '', sel = false;
     if (c.it.kindOf === 'x') {
       if (c.it.id === 'smith') { cost = SMITH_COST[Math.min(G.smith, 2)]; lock = G.smith >= 3 ? 'Max' : `Lv ${G.smith + 1}`; }
-      else { const t = TECHS.find(x => x.id === c.it.id), lv = G.tech[t.id]; cost = t.cost[Math.min(lv, t.max - 1)]; lock = lv >= t.max ? 'Max' : `Lv ${lv + 1}`; }
+      else { const t = TECHS.find(x => x.id === c.it.id), lv = TL(t.id); cost = techCostAt(t, Math.min(lv, t.max - 1)); lock = lv >= t.max ? 'Max' : `Lv ${lv + 1}/${t.max}`; }
     }
     if (d.age !== undefined && G.age < d.age) lock = AGES[d.age].name.split(' ')[0];
+    else if (c.it.kindOf === 'x' && d.need && !buildings.some(b => b.type === d.need && b.done)) lock = 'Needs ' + BDEF[d.need].name.split(' ')[0];
     if (c.it.kindOf === 'b') sel = G.build === c.it.id;
     const poor = Object.keys(cost).map(k => (G.res[k] >= cost[k] ? 1 : 0)).join('');
     const sig = [lock, sel, poor, Object.keys(cost).map(k => cost[k]).join()].join('|');
     if (!force && sig === c.sig) continue;
     c.sig = sig;
-    c.el.classList.toggle('locked', !!(d.age !== undefined && G.age < d.age));
+    c.el.classList.toggle('locked', !!(d.age !== undefined && G.age < d.age) || (c.it.kindOf === 'x' && !!d.need && !buildings.some(b => b.type === d.need && b.done)));
     c.el.classList.toggle('sel', sel);
     c.el.querySelector('.lk').textContent = lock;
-    if (c.it.kindOf === 'x' || d.wall) c.el.querySelector('.cs').innerHTML = costHTML(cost);
+    if (c.it.kindOf === 'x' || d.wall || d.plant) c.el.querySelector('.cs').innerHTML = costHTML(cost);
     c.el.querySelectorAll('.cs span').forEach(s => s.classList.toggle('no', G.res[s.dataset.r] < +s.dataset.n));
   }
 }
@@ -3201,10 +3375,11 @@ function endGame(win) {
   $('endText').textContent = win
     ? `Twenty-five raids broke against your walls. You reached the ${AGES[G.age].name} and defeated ${G.kills} raiders.`
     : `The clan held out for ${G.wave > 0 ? G.wave - 1 : 0} raids and defeated ${G.kills} raiders in the ${AGES[G.age].name}.`;
-  $('endScreen').classList.add('on');
+  $('endScreen').classList.add('on'); $('endlessBtn').style.display = win ? '' : 'none';
   sfx(win ? 'win' : 'lose');
 }
 $('startBtn').addEventListener('click', () => { audioInit(); sfx('click'); $('intro').classList.remove('on'); G.paused = false; });
+$('endlessBtn').addEventListener('click', () => { $('endScreen').classList.remove('on'); G.over = false; G.paused = false; G.endless = true; G.nextWave = G.t + 45; toast('Endless mode: the raids keep coming and keep growing. Reach for the stars'); sfx('click'); });
 $('againBtn').addEventListener('click', () => {
   $('endScreen').classList.remove('on');
   audioInit(); newGame(); G.paused = false; cam.tx = KX; cam.tz = KZ;
@@ -3275,7 +3450,7 @@ function frame(now) {
     const fl = b.group.userData.flags;
     if (fl) for (let i = 0; i < fl.length; i++) fl[i].rotation.y = Math.sin(now / 260 + b.id + i) * 0.35;
     const sp = b.group.userData.spin;
-    if (sp) for (let i = 0; i < sp.length; i++) { sp[i].rotation.y = now / 120; sp[i].position.y = 0.9 + Math.sin(now / 500 + b.id) * 0.12; }
+    if (sp) for (let i = 0; i < sp.length; i++) { sp[i].rotation.y = now / (b.type === 'skyport' ? 120 : 900); if (b.type === 'skyport') sp[i].position.y = 0.9 + Math.sin(now / 500 + b.id) * 0.12; }
   }
   if (G.sel && !G.sel.dead && G.sel.group) { /* selection ring */
     selRing.visible = true; selRing.position.set(G.sel.x, 0.08, G.sel.z); selRing.scale.setScalar(G.sel.def.size === 3 ? 2.4 : G.sel.def.size === 2 ? 1.5 : 0.8);
@@ -3320,7 +3495,7 @@ function snapshot() {
     meta: { wave: G.wave, age: G.age, pop: popCount(), t: Math.floor(G.t), season: SEASONS[ENV.season].name },
     seed, nodes: nodes.map(n => ({ type: n.type, i: n.i, j: n.j, amt: n.amt })),
     G: {
-      res: Object.assign({}, G.res), age: G.age, t: G.t, wave: G.wave, nextWave: G.nextWave === Infinity ? -1 : G.nextWave, smith: G.smith, tech: Object.assign({}, G.tech), diff: G.diff, threat: G.threat,
+      res: Object.assign({}, G.res), age: G.age, t: G.t, wave: G.wave, nextWave: G.nextWave === Infinity ? -1 : G.nextWave, smith: G.smith, tech: Object.assign({}, G.tech), diff: G.diff, endless: !!G.endless, threat: G.threat,
       birthT: G.birthT, treeT: G.treeT, kills: G.kills, speed: G.speed, slot: G.slot,
       spawnQ: G.spawnQ.map(q => ({ dt: q.t - G.t, kind: q.kind, x: q.x, z: q.z, mult: q.mult }))
     },
@@ -3339,7 +3514,7 @@ function applySnapshot(s) {
   genWorld(s);
   const g = s.G;
   Object.assign(G, {
-    res: Object.assign({ wood: 0, stone: 0, food: 0, gold: 0 }, g.res), age: g.age, t: g.t, wave: g.wave, nextWave: g.nextWave < 0 ? Infinity : g.nextWave, over: false, smith: g.smith, tech: Object.assign({ armor: 0, farm: 0, tools: 0 }, g.tech), diff: DIFF[g.diff] ? g.diff : 'normal', threat: g.threat,
+    res: Object.assign({ wood: 0, stone: 0, food: 0, gold: 0 }, g.res), age: g.age, t: g.t, wave: g.wave, nextWave: g.nextWave < 0 ? Infinity : g.nextWave, over: false, endless: !!g.endless, smith: g.smith, tech: Object.assign({}, g.tech || {}), diff: DIFF[g.diff] ? g.diff : 'normal', threat: g.threat,
     spawnQ: [], markers: [], slot: 0, birthT: g.birthT, treeT: g.treeT, kills: g.kills, sel: null, build: null, selU: [], cmd: null, speed: g.speed || 1
   });
   for (const q of g.spawnQ || []) G.spawnQ.push({ t: G.t + q.dt, kind: q.kind, x: q.x, z: q.z, mult: q.mult });

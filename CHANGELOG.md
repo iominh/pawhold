@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.0
+- Research tab with a 30-technology tree in four lines: Economy (Crop Rotation, Sturdy Tools, Hand Carts, Forestry, Deep Quarrying, Trade Routes, Attic Rooms, Herbal Medicine, Automatons, Fusion Lattice), Military (Sharpen Weapons, Tempered Armor, Drill Yard, Fletching, Veteran Training, War Banners, Aeronautics, Nanite Blood, Quantum Cores, Stellar Forge) and Defense (Reinforced Walls, Siegecraft, Watchfires, Rapid Repair, Masonry, Beacon Network, Orbital Targeting). Each has an age gate, often a building it needs, and one to three levels; effects apply to what you already have.
+- Five ages beyond Skyward: Fusion (Fusion Reactor: free gold, stone and food; Panda Mech with Shockwave), Orbital (Orbital Beacon: strikes from the sky; Bear Dropship with Payload), Nanotech (Nanoforge: heals animals and mends buildings in reach; Nano Swarm with Disassemble), Quantum (Quantum Spire: entangled bolts hit three raiders; Quantum Warden that blinks with Phase Shift) and Stellar (Star Beacon: builds free Fighter Drones; Fox Starship with Nova). Twelve ages in all, walls to 6000 hp, each with its own palette.
+- Endless mode: after the 25th raid the victory screen offers Keep playing; raids continue and keep growing, with Drakes (flying, from raid 22) and Juggernauts (4200 hp, from raid 26). Needed to actually reach the far ages.
+- More sky traffic as the ages advance, winged drakes, hovering vehicles for every flying unit.
+
 ## 1.9.0
 - Map is four times larger (88x88): more forests, lakes and hills to expand into. Raids still muster about 21 tiles from the Hall, the sun and its shadows follow the camera, and you can zoom out further.
 - Skyward Age, a seventh age after Clockwork: white composite and cyan glass, glowing barrier walls (1850 hp), Skyscrapers (2x2, house 12, windows lit at night), Laser Towers (a beam every 0.6 s at 10 tiles), the Sky Port and Sky Skiffs: flying fox gunships that cross walls, water and crowds, with the level 3 ability Strafing Run. Airships and a courier drone cruise over a Skyward town.

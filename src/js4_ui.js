@@ -49,7 +49,9 @@ const ENEMY_INFO = {
   raccoon: 'Throws stones from range. Kill it before it wears your walls down.', badger: 'Siege ram. Smashes walls and buildings, so keep it away from them.',
   chief: 'Bear Warlord, the boss of the raid. Focus every tower and defender on it.',
   direwolf: 'Dire Wolf: bigger, faster and meaner. Turrets and lancers deal with it best.',
-  troll: 'Troll: a walking siege engine with enormous health. Bombards and knights, and keep settlers well away.'
+  troll: 'Troll: a walking siege engine with enormous health. Bombards and knights, and keep settlers well away.',
+  drake: 'Drake: flies straight over your walls. Towers and flying defenders bring it down.',
+  juggernaut: 'Juggernaut: an endless-mode siege monster. Orbital strikes and starships, or it walks through the town.'
 };
 function statsRow(list) { return '<div class="st">' + list.map(x => `<span>${x}</span>`).join('') + '</div>'; }
 function tipBuilding(def, extra, locked) {
@@ -83,23 +85,28 @@ function hideTip() { tipEl.classList.remove('on'); tipEl.dataset.h = ''; }
 let tipHold = 0;
 const SWC = { wood: 'w', stone: 's', food: 'f', gold: 'g' };
 const costHTML = c => Object.keys(c).map(k => `<span data-r="${k}" data-n="${c[k]}"><i class="sw ${SWC[k]}"></i>${c[k]}</span>`).join('');
-const TABS = [{ id: 'town', name: 'Town' }, { id: 'defense', name: 'Defense' }, { id: 'army', name: 'Army' }];
+const TABS = [{ id: 'town', name: 'Town' }, { id: 'defense', name: 'Defense' }, { id: 'army', name: 'Army' }, { id: 'research', name: 'Research' }];
 let curTab = 'town', cards = [];
+const TECH_ICON = { farm: 'farm', tools: 'camp', carts: 'camp', forestry: 'sapling', quarrying: 'quarry', trade: 'market', housing: 'house', medicine: 'infirmary', automata: 'smith', armor: 'smith', drill: 'barracks', fletching: 'tower', veterans: 'barracks', banners: 'barracks', aero: 'skyport', walls: 'wall', siegecraft: 'ballista', watchfires: 'tower', repair: 'camp', masonry: 'quarry', beacon: 'laser', smith: 'smith', fusion: 'reactor', nano: 'nanoforge', quantumcore: 'quantum', stellar: 'starbeacon', targeting: 'orbital' };
+function techIcon(id) { return iconSVG(TECH_ICON[id] || 'smith'); }
 function renderDock() {
   $('tabs').innerHTML = TABS.map(t => `<button class="tab${t.id === curTab ? ' on' : ''}" data-tab="${t.id}">${t.name}</button>`).join('') + '<span class="hint" id="hint">Hover a card to see what it does</span>';
   const list = [];
   for (const k in BDEF) if (BDEF[k].cat === curTab) list.push({ kindOf: 'b', id: k, def: BDEF[k] });
   if (curTab === 'army') {
-    for (const k in UDEF) if (k !== 'worker') list.push({ kindOf: 'u', id: k, def: UDEF[k] });
-    list.push({ kindOf: 'x', id: 'smith', def: { name: 'Sharpen Weapons', cost: SMITH_COST[0], age: 2, blurb: 'Every defender and tower hits 20% harder per level.', role: 'Weapon upgrade', what: 'Pays the smiths to sharpen every weapon in the valley.', help: 'Each level adds +20% damage to every defender and every tower, up to three levels. Needs a finished Blacksmith.', tip: 'Worth buying before the boss raids at 5, 10 and 15.', hp: 0 } });
-    for (const t of TECHS) list.push({ kindOf: 'x', id: t.id, def: { name: t.name, cost: t.cost[0], age: t.age, blurb: t.what, role: t.role, what: t.what, help: t.help, tip: t.tip, hp: 0 } });
+    for (const k in UDEF) if (k !== 'worker' && !UDEF[k].free) list.push({ kindOf: 'u', id: k, def: UDEF[k] });
+  }
+  if (curTab === 'research') {
+    list.push({ kindOf: 'x', id: 'smith', def: { name: 'Sharpen Weapons', cost: SMITH_COST[0], age: 2, need: 'smith', group: 'Military', blurb: 'Every defender and tower hits 20% harder per level.', role: 'Military', what: 'Pays the smiths to sharpen every weapon in the valley.', help: 'Each level adds +20% damage to every defender and every tower, up to three levels. Needs a finished Blacksmith.', tip: 'Worth buying before every boss raid.', hp: 0 } });
+    for (const t of TECHS) list.push({ kindOf: 'x', id: t.id, def: { name: t.name, cost: t.cost[0], age: t.age, need: t.need, group: t.group, blurb: t.what, role: t.group + ' · ' + t.role, what: t.what, help: t.help + (t.need ? ` Needs a ${BDEF[t.need].name}.` : ''), tip: t.tip, hp: 0 } });
+    list.sort((a, b) => (a.def.group > b.def.group ? 1 : a.def.group < b.def.group ? -1 : 0) || a.def.age - b.def.age);
   }
   const box2 = $('cards');
   box2.innerHTML = '';
   cards = list.map(it => {
     const el = document.createElement('button');
     el.className = 'card';
-    el.innerHTML = `<div class="ic">${it.kindOf === 'u' ? unitIconSVG(it.def.sp) : it.kindOf === 'x' ? iconSVG(it.id === 'farm' ? 'farm' : it.id === 'tools' ? 'camp' : 'smith') : iconSVG(it.id)}</div><div class="nm">${it.def.name}</div><div class="cs">${costHTML(it.def.cost)}</div><span class="lk"></span>`;
+    el.innerHTML = `<div class="ic">${it.kindOf === 'u' ? unitIconSVG(it.def.sp) : it.kindOf === 'x' ? techIcon(it.id) : iconSVG(it.id)}</div><div class="nm">${it.def.name}</div><div class="cs">${costHTML(it.def.cost)}</div><span class="lk"></span>`;
     el.addEventListener('click', () => onCard(it));
     const showCard = () => {
       const d = it.def, r = el.getBoundingClientRect(), locked = d.age !== undefined && G.age < d.age ? `Unlocks in the ${AGES[d.age].name}` : '';
@@ -133,18 +140,19 @@ function updateDock(force) {
     let cost = d.cost, lock = '', sel = false;
     if (c.it.kindOf === 'x') {
       if (c.it.id === 'smith') { cost = SMITH_COST[Math.min(G.smith, 2)]; lock = G.smith >= 3 ? 'Max' : `Lv ${G.smith + 1}`; }
-      else { const t = TECHS.find(x => x.id === c.it.id), lv = G.tech[t.id]; cost = t.cost[Math.min(lv, t.max - 1)]; lock = lv >= t.max ? 'Max' : `Lv ${lv + 1}`; }
+      else { const t = TECHS.find(x => x.id === c.it.id), lv = TL(t.id); cost = techCostAt(t, Math.min(lv, t.max - 1)); lock = lv >= t.max ? 'Max' : `Lv ${lv + 1}/${t.max}`; }
     }
     if (d.age !== undefined && G.age < d.age) lock = AGES[d.age].name.split(' ')[0];
+    else if (c.it.kindOf === 'x' && d.need && !buildings.some(b => b.type === d.need && b.done)) lock = 'Needs ' + BDEF[d.need].name.split(' ')[0];
     if (c.it.kindOf === 'b') sel = G.build === c.it.id;
     const poor = Object.keys(cost).map(k => (G.res[k] >= cost[k] ? 1 : 0)).join('');
     const sig = [lock, sel, poor, Object.keys(cost).map(k => cost[k]).join()].join('|');
     if (!force && sig === c.sig) continue;
     c.sig = sig;
-    c.el.classList.toggle('locked', !!(d.age !== undefined && G.age < d.age));
+    c.el.classList.toggle('locked', !!(d.age !== undefined && G.age < d.age) || (c.it.kindOf === 'x' && !!d.need && !buildings.some(b => b.type === d.need && b.done)));
     c.el.classList.toggle('sel', sel);
     c.el.querySelector('.lk').textContent = lock;
-    if (c.it.kindOf === 'x' || d.wall) c.el.querySelector('.cs').innerHTML = costHTML(cost);
+    if (c.it.kindOf === 'x' || d.wall || d.plant) c.el.querySelector('.cs').innerHTML = costHTML(cost);
     c.el.querySelectorAll('.cs span').forEach(s => s.classList.toggle('no', G.res[s.dataset.r] < +s.dataset.n));
   }
 }
@@ -586,10 +594,11 @@ function endGame(win) {
   $('endText').textContent = win
     ? `Twenty-five raids broke against your walls. You reached the ${AGES[G.age].name} and defeated ${G.kills} raiders.`
     : `The clan held out for ${G.wave > 0 ? G.wave - 1 : 0} raids and defeated ${G.kills} raiders in the ${AGES[G.age].name}.`;
-  $('endScreen').classList.add('on');
+  $('endScreen').classList.add('on'); $('endlessBtn').style.display = win ? '' : 'none';
   sfx(win ? 'win' : 'lose');
 }
 $('startBtn').addEventListener('click', () => { audioInit(); sfx('click'); $('intro').classList.remove('on'); G.paused = false; });
+$('endlessBtn').addEventListener('click', () => { $('endScreen').classList.remove('on'); G.over = false; G.paused = false; G.endless = true; G.nextWave = G.t + 45; toast('Endless mode: the raids keep coming and keep growing. Reach for the stars'); sfx('click'); });
 $('againBtn').addEventListener('click', () => {
   $('endScreen').classList.remove('on');
   audioInit(); newGame(); G.paused = false; cam.tx = KX; cam.tz = KZ;
@@ -660,7 +669,7 @@ function frame(now) {
     const fl = b.group.userData.flags;
     if (fl) for (let i = 0; i < fl.length; i++) fl[i].rotation.y = Math.sin(now / 260 + b.id + i) * 0.35;
     const sp = b.group.userData.spin;
-    if (sp) for (let i = 0; i < sp.length; i++) { sp[i].rotation.y = now / 120; sp[i].position.y = 0.9 + Math.sin(now / 500 + b.id) * 0.12; }
+    if (sp) for (let i = 0; i < sp.length; i++) { sp[i].rotation.y = now / (b.type === 'skyport' ? 120 : 900); if (b.type === 'skyport') sp[i].position.y = 0.9 + Math.sin(now / 500 + b.id) * 0.12; }
   }
   if (G.sel && !G.sel.dead && G.sel.group) { /* selection ring */
     selRing.visible = true; selRing.position.set(G.sel.x, 0.08, G.sel.z); selRing.scale.setScalar(G.sel.def.size === 3 ? 2.4 : G.sel.def.size === 2 ? 1.5 : 0.8);

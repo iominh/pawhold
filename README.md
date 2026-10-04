@@ -1,6 +1,6 @@
 # Pawhold
 
-A 3D voxel medieval city-builder in the browser. A clan of foxes, pandas, rabbits and bears settles a valley, raises a town, walls it in and holds it against wolves, boars, raccoons and badger rams through seven ages (Hamlet, Medieval Town, Castle Age, Gunpowder Age, Imperial Age, Clockwork Age, Skyward Age). Survive 25 raids to finish the chronicle.
+A 3D voxel medieval city-builder in the browser. A clan of foxes, pandas, rabbits and bears settles a valley, raises a town, walls it in and holds it against wolves, boars, raccoons and badger rams through twelve ages, from Hamlet to Skyward, Fusion, Orbital, Nanotech, Quantum and Stellar. Survive 25 raids to finish the chronicle, then keep playing in endless mode.
 
 Plain HTML + [Three.js r128](https://threejs.org/), no framework and no build step needed to run. Installable as a PWA and playable offline.
 

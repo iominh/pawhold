@@ -42,6 +42,7 @@ const SPEC = {
   elk:     { bw: .34, bh: .34, bd: .62, ly: .3, hw: .28, body: 0x8a6a4a, belly: 0xb79a78, leg: 0x5a4030, sn: { w: .12, h: .1, l: .16, c: 0x6e5440 } },
   owl:     { bw: .3, bh: .36, bd: .28, ly: .12, hw: .3, body: 0x8a7458, belly: 0xe8dcc4, leg: 0xd9a24a, sn: { w: .08, h: .07, l: .08, c: 0xf2b134 } },
   troll:   { bw: .5, bh: .46, bd: .56, ly: .22, hw: .38, body: 0x5e7a5a, belly: 0x8aa082, leg: 0x3e5240, sn: { w: .18, h: .12, l: .12, c: 0x7f9a7a }, eye: 0xffb13a },
+  drake:   { bw: .34, bh: .3, bd: .7, ly: .22, hw: .3, body: 0x7a1f2b, belly: 0xb8473a, leg: 0x3a1016, sn: { w: .12, h: .1, l: .22, c: 0x5a1520 }, eye: 0xffd23a },
   warbear: { bw: .42, bh: .36, bd: .52, ly: .16, hw: .34, body: 0x40302a, belly: 0x5a443a, leg: 0x2a1d18, sn: { w: .16, h: .12, l: .1, c: 0x8a6a50 }, eye: 0xff4a3a }
 };
 
@@ -124,6 +125,10 @@ function makeAnimal(sp) {
       box(g, bw / 2 + 0.02, ly + 0.1, -0.2, 0.12, 0.12, 0.7, 0x5a3a22); box(g, bw / 2 - 0.02, ly + 0.08, -0.45, 0.2, 0.2, 0.22, 0x6c737a);
       box(g, -bw / 2 - 0.02, ly + bh - 0.1, -bd / 2 - 0.02, bw + 0.04, 0.12, bd + 0.04, 0x3e5240);
       break;
+    case 'drake':
+      both(s => { box(head, s * (hw / 2 - 0.04) - 0.03, hw, 0.02, 0.06, 0.18, 0.05, 0x3a1016); const w = box(g, s > 0 ? bw / 2 : -bw / 2 - 0.9, ly + bh - 0.04, -0.2, 0.9, 0.04, 0.5, 0x5a1520); w.userData.wing = s; (g.userData.wings = g.userData.wings || []).push(w); });
+      box(g, -0.05, ly + 0.08, -bd / 2 - 0.5, 0.1, 0.1, 0.55, S.body); box(g, -0.1, ly + 0.1, -bd / 2 - 0.62, 0.2, 0.08, 0.14, 0x3a1016);
+      break;
     case 'wolf':
       both(s => box(head, s * (hw / 2 - 0.05) - 0.04, hw, 0.03, 0.08, 0.13, 0.05, S.body));
       box(g, -0.05, ly + 0.12, -bd / 2 - 0.26, 0.1, 0.12, 0.3, 0x666d75);
@@ -154,7 +159,7 @@ function makeAnimal(sp) {
 }
 
 function addGear(g, role, sp) {
-  const S = SPEC[sp], head = g.userData.head, hw = S.hw;
+  const S = SPEC[sp], head = g.userData.head, hw = S.hw, both = fn => { fn(-1); fn(1); };
   if (role === 'archer') {
     box(head, -hw / 2 - 0.02, hw - 0.02, -0.02, hw + 0.04, 0.07, hw * 0.9 + 0.04, 0x3f7d46);
     box(g, -S.bw / 2 - 0.06, S.ly + 0.02, -0.05, 0.04, 0.34, 0.04, 0x7b5232);
@@ -182,6 +187,23 @@ function addGear(g, role, sp) {
     box(head, -hw / 2 - 0.03, hw - 0.02, -0.03, hw + 0.06, 0.06, hw * 0.9 + 0.06, 0x1f8a70);
     box(head, -0.05, hw + 0.04, 0.02, 0.1, 0.16, 0.1, 0x1f8a70);
     box(g, S.bw / 2 + 0.06, S.ly, 0.05, 0.04, 0.8, 0.04, 0x7b5232); box(g, S.bw / 2 + 0.03, S.ly + 0.8, 0.02, 0.1, 0.1, 0.1, 0xe0b24a, LAMP);
+  } else if (role === 'mech') {   // a walker frame around the panda
+    box(g, -S.bw / 2 - 0.08, S.ly - 0.02, -S.bd / 2 - 0.06, S.bw + 0.16, S.bh + 0.1, S.bd + 0.12, 0x2f3b4a);
+    box(g, -S.bw / 2 - 0.1, S.ly + S.bh * 0.5, -S.bd / 2 - 0.08, S.bw + 0.2, 0.08, S.bd + 0.16, 0xffb347);
+    both(s => { box(g, s * (S.bw / 2 + 0.12) - 0.08, S.ly + S.bh - 0.05, -0.1, 0.16, 0.16, 0.5, 0x1b2430); box(g, s * (S.bw / 2 + 0.12) - 0.04, S.ly + S.bh - 0.01, 0.38, 0.08, 0.08, 0.06, 0xff7a2a, LAMP); });
+    box(head, -hw / 2 - 0.03, hw - 0.03, -0.03, hw + 0.06, 0.1, hw * 0.9 + 0.06, 0x2f3b4a); box(head, -0.12, hw * 0.5, hw * 0.9 - 0.02, 0.24, 0.06, 0.03, 0xff7a2a, LAMP);
+  } else if (role === 'dropship' || role === 'swarm' || role === 'warden' || role === 'starship' || role === 'drone') {
+    const C = { dropship: [0xe8ecf4, 0x5c6fff, 0xc3d0ff], swarm: [0x1f2a2a, 0x19e6a0, 0x7fffd4], warden: [0x3a2a5a, 0xb060ff, 0xe6c7ff], starship: [0xf6f1ff, 0xffd36b, 0xffffff], drone: [0xf6f1ff, 0xffd36b, 0xffffff] }[role];
+    for (const p of g.userData.legs) p.visible = false;
+    const L = role === 'starship' ? 0.5 : role === 'dropship' ? 0.3 : 0.12, W = role === 'swarm' || role === 'drone' ? 0.06 : 0.14;
+    box(g, -S.bw / 2 - W, S.ly - 0.3, -S.bd / 2 - L, S.bw + W * 2, 0.18, S.bd + L * 2, C[0]);
+    box(g, -S.bw / 2 - W + 0.04, S.ly - 0.14, -S.bd / 2 - L + 0.04, S.bw + W * 2 - 0.08, 0.06, S.bd + L * 2 - 0.08, C[1]);
+    both(s => box(g, s * (S.bw / 2 + W + 0.12) - 0.1, S.ly - 0.4, -0.12, 0.2, 0.1, 0.24, C[2], LAMP));
+    if (role === 'starship') { box(g, -0.08, S.ly - 0.26, S.bd / 2 + 0.5, 0.16, 0.12, 0.5, C[1]); both(s => box(g, s * 0.5 - 0.04, S.ly - 0.3, -S.bd / 2 - 0.5, 0.08, 0.3, 0.3, C[1])); }
+    if (role === 'swarm') for (let k = 0; k < 6; k++) box(g, rnd(-0.4, 0.3), S.ly + rnd(0.1, 0.5), rnd(-0.4, 0.3), 0.05, 0.05, 0.05, C[1], LAMP);
+    if (role === 'warden') box(g, -S.bw / 2 - 0.2, S.ly + S.bh + 0.1, -S.bd / 2 - 0.2, S.bw + 0.4, 0.04, S.bd + 0.4, C[2], LAMP);
+    box(g, S.bw / 2 + W - 0.02, S.ly + 0.05, -0.1, 0.05, 0.05, 0.55, 0x2a3350); box(g, S.bw / 2 + W - 0.04, S.ly + 0.04, 0.42, 0.09, 0.09, 0.08, C[2], LAMP);
+    box(head, -hw / 2 - 0.02, hw - 0.02, -0.02, hw + 0.04, 0.08, hw * 0.9 + 0.04, C[0]);
   } else if (role === 'skiff') {   // the fox sits in a hovering skiff: hull below, canopy ring, thruster glow
     for (const p of g.userData.legs) p.visible = false;
     box(g, -S.bw / 2 - 0.12, S.ly - 0.3, -S.bd / 2 - 0.16, S.bw + 0.24, 0.16, S.bd + 0.36, 0xdfe6f0);
@@ -362,6 +384,49 @@ function buildModel(b) {
       g.add(tur); b.turret = tur;
       break;
     }
+    case 'reactor': {
+      box(g, -0.95, 0, -0.95, 1.9, 0.3, 1.9, 0x2f3b4a);
+      [[0.8, 0.5], [0.62, 0.4], [0.4, 0.3]].forEach(([s, h], k) => box(g, -s, 0.3 + k * 0.45, -s, s * 2, h, s * 2, k % 2 ? 0x1b2430 : 0x2f3b4a));
+      box(g, -0.22, 0.45, -0.22, 0.44, 1.1, 0.44, 0xff7a2a, LAMP);
+      [[-0.9, 0], [0.7, 0], [0, -0.9], [0, 0.7]].forEach(([x, z]) => { box(g, x, 0.3, z, 0.2, 0.9, 0.2, 0x1b2430); box(g, x + 0.05, 1.2, z + 0.05, 0.1, 0.3, 0.1, 0xffb347, LAMP); });
+      box(g, -0.3, 1.7, -0.3, 0.6, 0.08, 0.6, 0xffb347);
+      break;
+    }
+    case 'orbital': {
+      box(g, -0.4, 0, -0.4, 0.8, 0.14, 0.8, 0xe8ecf4);
+      box(g, -0.1, 0.14, -0.1, 0.2, 1.1, 0.2, 0x2a3350);
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z]) => box(g, x * 0.3 - 0.04, 0.14, z * 0.3 - 0.04, 0.08, 0.6, 0.08, 0xc3d0ff));
+      const tur = new THREE.Group(); tur.position.set(0, 1.24, 0);
+      box(tur, -0.45, 0, -0.45, 0.9, 0.08, 0.9, 0xe8ecf4); box(tur, -0.32, 0.08, -0.32, 0.64, 0.08, 0.64, 0x5c6fff); box(tur, -0.06, 0.16, -0.06, 0.12, 0.3, 0.12, 0xc3d0ff, LAMP);
+      g.add(tur); b.turret = tur; (g.userData.spin = g.userData.spin || []).push(tur);
+      break;
+    }
+    case 'nanoforge': {
+      box(g, -0.42, 0, -0.42, 0.84, 0.3, 0.84, 0x1f2a2a);
+      [[-0.34, -0.34], [0.14, -0.34], [-0.34, 0.14], [0.14, 0.14]].forEach(([x, z]) => box(g, x, 0.3, z, 0.2, 0.7, 0.2, 0x0f1a1a));
+      box(g, -0.3, 0.55, -0.3, 0.6, 0.12, 0.6, 0x19e6a0, LAMP); box(g, -0.3, 0.95, -0.3, 0.6, 0.12, 0.6, 0x19e6a0, LAMP);
+      box(g, -0.12, 0.3, -0.12, 0.24, 0.9, 0.24, 0x7fffd4, LAMP);
+      break;
+    }
+    case 'quantum': {
+      box(g, -0.36, 0, -0.36, 0.72, 0.12, 0.72, 0x3a2a5a);
+      [[0.22, 0.9], [0.16, 0.7], [0.1, 0.5]].forEach(([s, h], k) => box(g, -s, 0.12 + k * 0.75, -s, s * 2, h, s * 2, k % 2 ? 0x22183a : 0x3a2a5a));
+      [0.5, 1.0, 1.5].forEach(y => box(g, -0.3, y, -0.3, 0.6, 0.05, 0.6, 0xb060ff, LAMP));
+      const tur = new THREE.Group(); tur.position.set(0, 2.1, 0);
+      box(tur, -0.12, 0, -0.12, 0.24, 0.24, 0.24, 0xe6c7ff, LAMP);
+      g.add(tur); b.turret = tur; (g.userData.spin = g.userData.spin || []).push(tur);
+      break;
+    }
+    case 'starbeacon': {
+      box(g, -0.95, 0, -0.95, 1.9, 0.2, 1.9, 0x3a3f66);
+      box(g, -0.55, 0.2, -0.55, 1.1, 0.25, 1.1, 0xf6f1ff);
+      box(g, -0.2, 0.45, -0.2, 0.4, 2.4, 0.4, 0xf6f1ff); box(g, -0.08, 2.85, -0.08, 0.16, 0.5, 0.16, 0xffd36b, LAMP);
+      [[-0.85, -0.85], [0.65, -0.85], [-0.85, 0.65], [0.65, 0.65]].forEach(([x, z]) => box(g, x, 0.2, z, 0.2, 0.5, 0.2, 0xffd36b, LAMP));
+      const ring = new THREE.Group(); ring.position.set(0, 1.6, 0);
+      [0, 1, 2, 3].forEach(k => { const a = k / 4 * Math.PI * 2; box(ring, Math.cos(a) * 0.6 - 0.06, 0, Math.sin(a) * 0.6 - 0.06, 0.12, 0.12, 0.12, 0xffffff, LAMP); });
+      g.add(ring); (g.userData.spin = g.userData.spin || []).push(ring);
+      break;
+    }
     case 'skyscraper': {
       const h1 = hash(b.i * 3, b.j * 5);
       box(g, -0.9, 0, -0.9, 1.8, 0.2, 1.8, 0x8a929c);
@@ -518,6 +583,11 @@ const ICONS = {
   tower: [[24, 30, 8, 16, 0xb9bfc5, 0x9aa1a8], [24, 16, 11, 3, 0xc6ccd1, 0xc6ccd1]],
   ballista: [[24, 30, 8, 16, 0xb9bfc5, 0x9aa1a8], [24, 16, 11, 3, 0xc6ccd1, 0xc6ccd1], [24, 12, 6, 2, 0x7b5232, 0x5a3a22]],
   cannon: [[24, 31, 10, 13, 0x6c737a, 0x6c737a], [24, 18, 12, 3, 0xe3b44e, 0xb98c2a], [24, 13, 4, 5, 0x25282c, 0x25282c]],
+  reactor: [[24, 30, 20, 8, 0x2f3b4a, 0x1b2430], [24, 22, 12, 6, 0x2f3b4a, 0x1b2430], [24, 15, 5, 8, 0xff7a2a, 0xff7a2a]],
+  orbital: [[24, 32, 10, 5, 0xe8ecf4, 0xc3d0ff], [24, 20, 4, 14, 0x2a3350, 0x1b2430], [24, 12, 16, 4, 0xe8ecf4, 0x5c6fff]],
+  nanoforge: [[24, 32, 14, 5, 0x1f2a2a, 0x0f1a1a], [24, 22, 8, 12, 0x7fffd4, 0x19e6a0], [24, 17, 12, 3, 0x19e6a0, 0x19e6a0]],
+  quantum: [[24, 33, 12, 4, 0x3a2a5a, 0x22183a], [24, 20, 6, 16, 0x3a2a5a, 0x22183a], [24, 8, 5, 5, 0xe6c7ff, 0xb060ff]],
+  starbeacon: [[24, 32, 18, 6, 0x3a3f66, 0x2a2f4d], [24, 16, 6, 18, 0xf6f1ff, 0xd8d2e8], [24, 6, 4, 6, 0xffd36b, 0xffd36b]],
   skyscraper: [[24, 34, 14, 6, 0xdfe6f0, 0xb9c3cf], [24, 24, 12, 10, 0xdfe6f0, 0xb9c3cf], [24, 14, 9, 10, 0xdfe6f0, 0xb9c3cf], [24, 10, 2, 5, 0x2cc4d8, 0x2cc4d8]],
   laser: [[24, 32, 10, 5, 0x8a929c, 0x6f777f], [24, 18, 5, 16, 0xdfe6f0, 0xb9c3cf], [24, 12, 8, 5, 0x3b4a5a, 0x2b3744], [24, 9, 4, 3, 0x5cf0ff, 0x5cf0ff]],
   skyport: [[24, 30, 20, 5, 0x3b4a5a, 0x2b3744], [24, 28, 10, 2, 0x7fe0ff, 0x7fe0ff], [32, 20, 5, 10, 0xdfe6f0, 0xb9c3cf], [18, 18, 6, 3, 0xdfe6f0, 0xb9c3cf]],
