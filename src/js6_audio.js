@@ -103,6 +103,7 @@ const SFX = {
   arrow: o => noise(o, 0.15, 0.2, 'bandpass', 2400, 900, 2),
   bolt: o => { tone(o, 190, 0.25, 'sawtooth', 0.12, 0, 80); noise(o, 0.12, 0.16, 'bandpass', 1500, 600, 2); },
   ball: o => { tone(o, 110, 0.55, 'sine', 0.5, 0, 34); noise(o, 0.45, 0.5, 'lowpass', 900, 120); },
+  laser: o => { tone(o, 1400, 0.14, 'sine', 0.07, 0, 300); tone(o, 2200, 0.1, 'triangle', 0.04, 0.02, 500); },
   bullet: o => { noise(o, 0.1, 0.4, 'highpass', 1800, 0); tone(o, 900, 0.08, 'square', 0.08, 0, 200); },
   stone: o => tone(o, 300, 0.1, 'triangle', 0.1, 0, 150),
   hit: o => { noise(o, 0.08, 0.28, 'lowpass', 700, 200); tone(o, 140, 0.08, 'square', 0.08); },
@@ -121,7 +122,7 @@ const SFX = {
   win: o => { [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.G5, NOTE.C6].forEach((f, i) => tone(o, f, 0.5, 'triangle', 0.16, i * 0.16)); },
   lose: o => { [NOTE.A4, NOTE.F5 / 1.26, NOTE.E4, NOTE.A3].forEach((f, i) => tone(o, f, 0.7, 'sawtooth', 0.1, i * 0.3, f * 0.9)); }
 };
-const SFX_GAP = { arrow: 0.06, hit: 0.05, bash: 0.08, coin: 0.25, chop: 0.14, clink: 0.14, hammer: 0.18, die: 0.05, dieFriend: 0.1, bolt: 0.1, stone: 0.08, bullet: 0.06, place: 0.05, spawn: 0.1, click: 0.03, done: 0.1, heal: 0.6, ability: 0.1 };
+const SFX_GAP = { arrow: 0.06, hit: 0.05, bash: 0.08, coin: 0.25, chop: 0.14, clink: 0.14, hammer: 0.18, die: 0.05, dieFriend: 0.1, bolt: 0.1, stone: 0.08, bullet: 0.06, laser: 0.05, place: 0.05, spawn: 0.1, click: 0.03, done: 0.1, heal: 0.6, ability: 0.1 };
 function sfx(name, x, z) {
   const c = AUD.ctx;
   if (!c || AUD.mode === 2 || !SFX[name]) return;

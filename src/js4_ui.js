@@ -3,7 +3,7 @@ const cam = { tx: KX, tz: KZ, yaw: 0.8, pitch: 0.72, dist: 30 };
 const keys = {};
 function applyCam() {
   cam.tx = clamp(cam.tx, 4, MAP - 5); cam.tz = clamp(cam.tz, 4, MAP - 5);
-  cam.dist = clamp(cam.dist, 10, 62); cam.pitch = clamp(cam.pitch, 0.3, 1.35);
+  cam.dist = clamp(cam.dist, 10, 95); cam.pitch = clamp(cam.pitch, 0.3, 1.35);
   const cp = Math.cos(cam.pitch);
   camera.position.set(cam.tx + Math.sin(cam.yaw) * cp * cam.dist, Math.sin(cam.pitch) * cam.dist, cam.tz + Math.cos(cam.yaw) * cp * cam.dist);
   camera.lookAt(cam.tx, 0, cam.tz);
@@ -121,7 +121,7 @@ function onCard(it) {
   if (it.kindOf === 'b') {
     if (G.age < d.age) return toast(`${d.name} unlocks in the ${AGES[d.age].name}`, true);
     G.build = G.build === it.id ? null : it.id; G.sel = null; G.selU = []; G.cmd = null; sfx('click');
-    if (G.build) toast(d.wall ? `${d.name}: click or drag to build` : `${d.name}: click the ground to build`);
+    if (G.build) toast(d.wall || d.plant ? `${d.name}: click or drag to place` : `${d.name}: click the ground to build`);
   } else if (it.kindOf === 'u') { trainUnit(it.id); }
   else if (it.id === 'smith') upgradeSmith();
   else researchTech(it.id);
@@ -431,7 +431,7 @@ canvasEl.addEventListener('pointerdown', e => {
     panVel.x = panVel.y = 0;
     painted = false;
     const def = G.build && BDEF[G.build];
-    if (def && def.wall && e.button === 0 && !G.over) { painting = true; lastPaint = ''; paint(e.clientX, e.clientY); }
+    if (def && (def.wall || def.plant) && e.button === 0 && !G.over) { painting = true; lastPaint = ''; paint(e.clientX, e.clientY); }
     else if (e.shiftKey && e.button === 0 && !G.build && !G.over) { marq = { x0: e.clientX, y0: e.clientY }; }
   } else { painting = false; marq = null; marqEl.style.display = 'none'; if (down) down.moved = true; pinch = null; }
   updateGhost(e.clientX, e.clientY);
@@ -659,6 +659,8 @@ function frame(now) {
   for (const b of buildings) {
     const fl = b.group.userData.flags;
     if (fl) for (let i = 0; i < fl.length; i++) fl[i].rotation.y = Math.sin(now / 260 + b.id + i) * 0.35;
+    const sp = b.group.userData.spin;
+    if (sp) for (let i = 0; i < sp.length; i++) { sp[i].rotation.y = now / 120; sp[i].position.y = 0.9 + Math.sin(now / 500 + b.id) * 0.12; }
   }
   if (G.sel && !G.sel.dead && G.sel.group) { /* selection ring */
     selRing.visible = true; selRing.position.set(G.sel.x, 0.08, G.sel.z); selRing.scale.setScalar(G.sel.def.size === 3 ? 2.4 : G.sel.def.size === 2 ? 1.5 : 0.8);

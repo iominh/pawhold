@@ -27,6 +27,16 @@ function puff(x, y, z, color, n, spd, life, size) {
     parts.push({ m, vx: rnd(-1, 1) * spd, vy: rnd(0.4, 1.4) * spd, vz: rnd(-1, 1) * spd, life, max: life, s });
   }
 }
+const SHAKING = [];
+function updateShakes(dt) {   // trees and rocks wobble when struck
+  for (let k = SHAKING.length - 1; k >= 0; k--) {
+    const n = SHAKING[k]; n.shake -= dt;
+    if (n.shake <= 0 || !n.group) { if (n.group) { n.group.rotation.z = 0; n.group.rotation.x = 0; } SHAKING.splice(k, 1); continue; }
+    const a = Math.sin(n.shake * 40) * n.shake * 0.35;
+    n.group.rotation.z = a; n.group.rotation.x = a * 0.5;
+    if (n.growT) { n.growT -= dt; const s = 1 - Math.max(0, n.growT) / 1.2 * 0.65; n.group.scale.setScalar(s); if (n.growT <= 0) { n.growT = 0; n.group.scale.setScalar(1); } }
+  }
+}
 function updateParts(dt) {
   for (let k = parts.length - 1; k >= 0; k--) {
     const p = parts[k];
@@ -40,7 +50,7 @@ function updateParts(dt) {
 const SHOT = {
   arrow: { c: 0x6b4a2f, s: [0.05, 0.05, 0.3], sp: 15 }, bolt: { c: 0xdfe4e8, s: [0.07, 0.07, 0.55], sp: 19 },
   ball: { c: 0x25282c, s: [0.22, 0.22, 0.22], sp: 11 }, bullet: { c: 0xffd36b, s: [0.08, 0.08, 0.2], sp: 26, basic: true },
-  stone: { c: 0x9aa0a6, s: [0.12, 0.12, 0.12], sp: 10 }
+  stone: { c: 0x9aa0a6, s: [0.12, 0.12, 0.12], sp: 10 }, laser: { c: 0x5cf0ff, s: [0.06, 0.06, 1.3], sp: 55, basic: true }
 };
 function shoot(src, tgt, kindName, dmg, splash, fy) {
   const S = SHOT[kindName];
@@ -213,6 +223,14 @@ function placeBuilding(type, ai, aj, instant) {
   return b;
 }
 function finishBuilding(b) {
+  if (b.def.plant) {   // a planting becomes a resource node the moment it is finished
+    const i = b.i, j = b.j, type = b.def.plant;
+    destroyBuilding(b, true);
+    const n = addNode(type, i, j, type === 'wood' ? 30 : 24);
+    n.group.scale.setScalar(0.35); n.growT = 1.2; if (!SHAKING.includes(n)) { n.shake = 0.6; SHAKING.push(n); }
+    puff(n.x, 0.4, n.z, 0x6fcf57, 8, 1.2, 0.6, 0.08); sfx('done', n.x, n.z);
+    return;
+  }
   b.done = true; b.progress = 1; b.group.scale.y = 1; b.builders = 0;
   if (b.scaf) { scene.remove(b.scaf); b.scaf = null; }
   puff(b.x, b.y + 0.3, b.z, 0xe9e2d0, 10, 1.6, 0.6, 0.18);
@@ -225,8 +243,7 @@ function destroyBuilding(b, silent) {
   dropBar(b);
   b.cells.forEach(([i, j]) => { if (occ[i][j] === b) occ[i][j] = null; });
   buildings.splice(buildings.indexOf(b), 1); NAV.ver++;
-  sfx('crumble', b.x, b.z);
-  puff(b.x, b.y + 0.5, b.z, 0x9a8f80, 16, 2.4, 0.9, 0.22); puff(b.x, b.y + 0.5, b.z, 0x6b4a2f, 8, 2, 0.8, 0.18);
+  if (!silent || !b.def.plant) { sfx('crumble', b.x, b.z); puff(b.x, b.y + 0.5, b.z, 0x9a8f80, 16, 2.4, 0.9, 0.22); puff(b.x, b.y + 0.5, b.z, 0x6b4a2f, 8, 2, 0.8, 0.18); }
   if (b.def.wall) refreshWalls(b.i, b.j);
   if (G.sel === b) G.sel = null;
   for (const u of units) { if (u.site === b) { u.site = null; u.state = 'idle'; } if (u.rep === b) { u.rep = null; u.state = 'idle'; } if (u.farm === b) { u.farm = null; u.state = 'idle'; } }
@@ -285,7 +302,8 @@ const ABIL = {
   knight: { name: 'Cleave', cd: 16, desc: 'Strikes every raider within 1.8 tiles for 2x damage.' },
   musket: { name: 'Aimed Shot', cd: 18, desc: 'One shot for 4x damage.' },
   lancer: { name: 'Stampede', cd: 20, desc: 'Charges 3 tiles ahead, hitting raiders in the way for 1.6x damage and shoving them aside.' },
-  sage: { name: 'Hoot of Courage', cd: 24, desc: 'Every defender within 4 tiles heals 30% of its health.' }
+  sage: { name: 'Hoot of Courage', cd: 24, desc: 'Every defender within 4 tiles heals 30% of its health.' },
+  skiff: { name: 'Strafing Run', cd: 16, desc: 'A beam sweep that hits every raider within 5 tiles for 1.2x damage.' }
 };
 function applyStats(u) {
   const d = u.def, L = u.lvl - 1;
@@ -357,6 +375,9 @@ function useAbility(u) {
       const sp = validSpot(u.x + fx * 3, u.z + fz * 3); u.x = sp[0]; u.z = sp[1]; u.path = null;
       puff(u.x, 0.4, u.z, 0xd9c9a0, 14, 2.6, 0.5, 0.12); used = true;
     }
+  } else if (u.role === 'skiff') {   // Strafing Run: beam every raider nearby
+    const foes = enemies.filter(e => !e.dead && dist2(u, e) <= 5);
+    if (foes.length) { foes.forEach(e => shoot(u, e, 'laser', dmg * 1.2, 0, 1.2)); used = true; }
   } else if (u.role === 'sage') {   // Hoot of Courage: heal every defender nearby
     const allies = units.filter(o => !o.dead && o.role !== 'worker' && dist2(u, o) <= 4 && o.hp < o.maxhp);
     if (allies.length) { allies.forEach(o => { o.hp = Math.min(o.maxhp, o.hp + o.maxhp * 0.3); dropBar(o); if (o.hp < o.maxhp) showBar(o); puff(o.x, o.y + 0.9, o.z, 0x7be07b, 6, 1.2, 0.6, 0.1); }); used = true; }
@@ -418,8 +439,8 @@ function wantsToMove(u) {
   if (u.role === 'worker') return !!MOVING_STATES[u.state];
   if (u.order) return true;
   if (u.hold || u.tgt || u.giveUp > G.t) return false;
-  const sp = u.home || rallyPos(u.slot);
-  return Math.hypot(sp[0] - u.x, sp[1] - u.z) > 1.2;
+  const sp = u.home || rallyPos(u.rIdx || 0);
+  return Math.hypot(sp[0] - u.x, sp[1] - u.z) > 2.6;
 }
 function freezeGuard(dt) {
   DIAG.t -= dt; if (DIAG.t > 0) return; DIAG.t = 0.5;
@@ -441,6 +462,7 @@ function freezeGuard(dt) {
   }
 }
 function watchdog(u, dt) {
+  if (u.fly) { u.wdT = 0; return; }
   if (u.team === 0 && !reachAt(Math.round(u.x), Math.round(u.z))) { escapePocket(u); u.wdT = 0; return; }
   if (blockedAt(u.x, u.z, u.team === 0 ? 0 : 1, null) === true || (u.team === 0 && blockedAt(u.x, u.z, 0, null))) {   // standing inside a building or cliff: step out to the nearest free spot
     const sp = validSpot(u.x, u.z); u.x = sp[0]; u.z = sp[1]; u.path = null; u.wdT = 0; return;
@@ -617,6 +639,13 @@ function losClear(team, x0, z0, x1, z1, ignoreB) {
 // Walk toward (tx,tz) by the best route. Returns like stepToward, plus `breach` when a raider reaches a wall or building on its route.
 function moveTo(u, tx, tz, dt, ignoreB) {
   const d = Math.hypot(tx - u.x, tz - u.z);
+  if (u.fly) {   // flyers go straight there, over everything
+    if (d < 1.2) u.mvNear = G.t; else u.mv = G.t;
+    if (d < 0.001) return { d, blocked: false, moved: false };
+    const sp = Math.min(u.speed * dt, d); u.x += (tx - u.x) / d * sp; u.z += (tz - u.z) / d * sp; u.face = Math.atan2(tx - u.x, tz - u.z); u.moved = true; u.stuckT = 0;
+    u.x = clamp(u.x, 1, MAP - 2); u.z = clamp(u.z, 1, MAP - 2);
+    return { d, blocked: false, moved: true };
+  }
   if (d < 1.2) u.mvNear = G.t; else u.mv = G.t;
   if (d < 0.001) return { d, blocked: false, moved: false };
   if (d < 0.6 || (G.t > (u.noLos || 0) && losClear(u.team, u.x, u.z, tx, tz, ignoreB))) {
@@ -658,7 +687,7 @@ function moveTo(u, tx, tz, dt, ignoreB) {
 
 function animateUnit(u, dt) {
   const m = u.model, ud = m.userData;
-  u.y += (groundAt(u.x, u.z) - u.y) * Math.min(1, dt * 10);
+  u.y += ((groundAt(u.x, u.z) + (u.fly ? 1.1 + Math.sin(G.t * 2.1 + (u.slot || 0)) * 0.12 : 0)) - u.y) * Math.min(1, dt * 10);
   m.position.set(u.x, u.y, u.z);
   u.vis = turnTo(u.vis === undefined ? u.face : u.vis, u.face, dt * 10);
   m.rotation.y = u.vis;
@@ -668,6 +697,16 @@ function animateUnit(u, dt) {
   const bob = u.moved ? Math.abs(Math.sin(u.walk)) * 0.05 : (u.state === 'gather' || u.state === 'build') ? Math.abs(Math.sin(G.t * 9)) * 0.07 : 0;
   m.position.y = u.y + bob;
   if (u.atk > 0) { u.atk -= dt; ud.body.position.z = Math.sin(clamp(u.atk / 0.25, 0, 1) * Math.PI) * 0.18; } else ud.body.position.z = 0;
+  if (ud.tool) {   // settlers swing a tool while gathering, building, repairing or tending
+    const working = u.state === 'gather' || u.state === 'build' || u.state === 'repair' || u.state === 'farm';
+    ud.tool.visible = working;
+    if (working) {
+      const sw = Math.sin(G.t * 9 + (u.slot || 0)), isPick = u.state === 'gather' && u.node && (u.node.type === 'stone' || u.node.type === 'gold');
+      ud.axe.visible = !isPick; ud.pick.visible = isPick;
+      ud.tool.rotation.x = -0.9 + sw * 0.9; ud.body.rotation.x = Math.max(0, sw) * 0.12;
+      if (ud.head) ud.head.rotation.x = Math.max(0, sw) * 0.25;
+    } else { ud.body.rotation.x = 0; if (ud.head) ud.head.rotation.x = 0; }
+  }
   { const es = u.elite ? 1.12 : 1; if (u.hitT > 0) { u.hitT -= dt; m.scale.set(es * (1 + u.hitT), es * (1 - u.hitT * 1.4), es * (1 + u.hitT)); } else m.scale.set(es, es, es); }
   u.moved = false;
 }
@@ -785,7 +824,10 @@ function updateWorker(u, dt) {
       if (u.gt >= 0.8 / (1 + 0.07 * (u.lvl - 1))) {
         u.gt = 0; n.amt--; u.carry++; u.carryType = n.type;
         if (n.type === 'wood') sfx('chop', n.x, n.z); else if (n.type !== 'food') sfx('clink', n.x, n.z);
-        puff(n.x, 0.4, n.z, n.type === 'wood' ? 0x6b4a2f : n.type === 'gold' ? 0xf2c14e : n.type === 'food' ? 0xd9344a : 0xb1b7bd, 2, 1.2, 0.35, 0.07);
+        puff(n.x, 0.4, n.z, n.type === 'wood' ? 0x6b4a2f : n.type === 'gold' ? 0xf2c14e : n.type === 'food' ? 0xd9344a : 0xb1b7bd, 3, 1.3, 0.4, 0.07);
+        if (n.type === 'wood') puff(n.x, 0.9, n.z, pick([0x5cc04a, 0x6fcf57, 0x4fb243]), 3, 0.7, 0.9, 0.08);   // leaves shaken loose
+        else if (n.type !== 'food') puff(n.x, 0.5, n.z, 0xfff1a8, 2, 2.2, 0.25, 0.04);   // sparks
+        n.shake = 0.35; if (!SHAKING.includes(n)) SHAKING.push(n);
         if (n.amt <= 0) { releaseWorker(u); removeNode(n); u.state = 'toDrop'; break; }
       }
       if (u.carry >= carryCap(u)) { releaseWorker(u); u.state = 'toDrop'; }
@@ -877,7 +919,7 @@ function makeUnit(role, x, z, spOverride) {
   const u = {
     team: 0, role, sp, def: d, x, z, y: groundAt(x, z), hp: d.hp, maxhp: d.hp, speed: d.speed, model, state: 'idle', face: rnd(0, 6.28),
     walk: 0, atk: 0, cd: rnd(0, 0.5), carry: 0, carryType: null, slot: G.slot++, hgt: 0.8, barW: 0.55, dead: false, wait: 0, think: 0, hitT: 0, moved: false,
-    name: pick(NAMES), lvl: 1, xp: 0, dmgM: 1, abCd: 0, shield: 0, order: null, hold: false, home: null, trait: role === 'worker' ? null : pick(Object.keys(TRAITS)), giveUp: 0
+    name: pick(NAMES), lvl: 1, xp: 0, dmgM: 1, abCd: 0, shield: 0, order: null, hold: false, home: null, fly: !!d.fly, trait: role === 'worker' ? null : pick(Object.keys(TRAITS)), giveUp: 0
   };
   if (u.trait) applyStats(u);
   u.release = () => releaseWorker(u);
@@ -887,9 +929,16 @@ function makeUnit(role, x, z, spOverride) {
   units.push(u);
   return u;
 }
-function rallyPos(slot) {
-  const ang = G.threat + ((slot % 9) - 4) * 0.26, r = 5.5 + (Math.floor(slot / 9) % 3) * 0.9;
+/* Rally spots: an arc facing the threat, one spot per living defender (index among the living, not a lifetime counter,
+   so late-game armies do not pile onto the same few tiles). */
+function rallyPos(idx) {
+  const perRing = 9, ring = Math.floor(idx / perRing), k = idx % perRing;
+  const ang = G.threat + (k - 4) * 0.26 + (ring % 2 ? 0.13 : 0), r = 5.5 + ring * 0.95;
   return [KX + Math.cos(ang) * r, KZ + Math.sin(ang) * r];
+}
+function assignRally() {   // called once per step before soldiers think
+  let k = 0;
+  for (const u of units) if (!u.dead && u.role !== 'worker') u.rIdx = k++;
 }
 function engage(u, t, dt, forced) {
   const d = u.def, dd = dist2(u, t);
@@ -919,7 +968,7 @@ function updateSoldier(u, dt) {
   const amove = u.order && u.order.type === 'amove';
   let t = u.tgt;
   if (!t || t.dead || dist2(u, t) > (u.hold ? d.range + 1 : 13)) {
-    t = u.tgt = nearest(enemies, u.x, u.z, u.hold ? d.range + 0.3 : 10, e => (e !== u.skip || G.t > u.skipT) && (u.hold || amove || Math.hypot(e.x - KX, e.z - KZ) < 22));
+    t = u.tgt = nearest(enemies, u.x, u.z, u.hold ? d.range + 0.3 : 10, e => (e !== u.skip || G.t > u.skipT) && (u.hold || amove || Math.hypot(e.x - KX, e.z - KZ) < RAID_DIST + 4));
   }
   if (t) { engage(u, t, dt, false); return; }
   if (amove) {
@@ -929,10 +978,15 @@ function updateSoldier(u, dt) {
     return;
   }
   if (u.hold || u.giveUp > G.t) return;
-  const sp = u.home || validSpot(...rallyPos(u.slot));
-  if (Math.hypot(sp[0] - u.x, sp[1] - u.z) > 1.0) {
+  const sp = u.home || validSpot(...rallyPos(u.rIdx || 0));
+  const dsp = Math.hypot(sp[0] - u.x, sp[1] - u.z);
+  if (dsp > 1.0) {
     const r = moveTo(u, sp[0], sp[1], dt);
-    if (r.unreachable || (u.stuckT || 0) > 1.5) { u.giveUp = G.t + 4; u.stuckT = 0; if (u.home) u.home = null; }
+    if (r.unreachable || (u.stuckT || 0) > 1.5) {
+      u.stuckT = 0;
+      if (dsp < 2.6) { u.home = [u.x, u.z]; u.giveUp = G.t + 6; }   // close enough and boxed in by friends: this is our spot now
+      else { u.home = validSpot(sp[0] + rnd(-1.5, 1.5), sp[1] + rnd(-1.5, 1.5)); u.giveUp = G.t + 1; }   // try a neighbouring spot instead of sulking
+    }
   }
 }
 
@@ -1016,7 +1070,7 @@ function planWave(n) {
   return list;
 }
 function spawnPoint(a) {
-  const dx = Math.cos(a), dz = Math.sin(a), k = (MAP / 2 - 3.5) / Math.max(Math.abs(dx), Math.abs(dz));
+  const dx = Math.cos(a), dz = Math.sin(a), k = Math.min(RAID_DIST / Math.max(Math.abs(dx), Math.abs(dz)), MAP / 2 - 3.5);
   let x = clamp(KX + dx * k, 3, MAP - 4), z = clamp(KZ + dz * k, 3, MAP - 4);
   for (let r = 0; r < 6; r++) { const i = Math.round(x), j = Math.round(z); if (kind[i][j] === 'g') break; x += dx * -0.8; z += dz * -0.8; }
   return [x, z];
@@ -1066,8 +1120,8 @@ function popCount() { let n = 0; for (const u of units) if (!u.dead) n++; return
 function trainUnit(role) {
   const d = UDEF[role];
   if (G.age < d.age) return toast(`${d.name} needs ${AGES[d.age].name}`, true);
-  const bar = buildings.filter(b => b.type === 'barracks' && b.done).sort((a, b) => dist2(a, G.keepB) - dist2(b, G.keepB))[0];
-  if (!bar) return toast('Build a Barracks first', true);
+  const bar = buildings.filter(b => b.type === (d.fly ? 'skyport' : 'barracks') && b.done).sort((a, b) => dist2(a, G.keepB) - dist2(b, G.keepB))[0];
+  if (!bar) return toast(d.fly ? 'Build a Sky Port first' : 'Build a Barracks first', true);
   if (popCount() >= G.popCap) return toast('Not enough housing. Build more Burrow Houses', true);
   if (!afford(d.cost)) return toast('Not enough resources', true);
   pay(d.cost);
@@ -1167,6 +1221,7 @@ function step(dt) {
   while (G.spawnQ.length && G.spawnQ[0].t <= G.t) { const s = G.spawnQ.shift(); const e = makeEnemy(s.kind, s.x, s.z, s.mult); puff(e.x, 0.5, e.z, 0xe8654f, 6, 1.5, 0.5, 0.12); }
   for (let k = G.markers.length - 1; k >= 0; k--) if (G.t > G.markers[k].until) { scene.remove(G.markers[k].mk); G.markers.splice(k, 1); }
   // actors
+  assignRally();
   for (const u of units) if (!u.dead) { if (u.role === 'worker') updateWorker(u, dt); else updateSoldier(u, dt); }
   for (const e of enemies) if (!e.dead) updateEnemy(e, dt);
   for (const o of units) if (!o.dead) watchdog(o, dt);
@@ -1178,13 +1233,14 @@ function step(dt) {
   const all = units.concat(enemies).filter(o => !o.dead);
   for (let a = 0; a < all.length; a++) for (let b = a + 1; b < all.length; b++) {
     const p = all[a], q = all[b], dx = q.x - p.x, dz = q.z - p.z, d = Math.hypot(dx, dz);
+    if (p.fly || q.fly) continue;
     if (d < 0.42 && d > 0.001) {
       const push = (0.42 - d) * 0.35, ux = dx / d * push, uz = dz / d * push;
       if (!blockedAt(p.x - ux, p.z - uz, p.team, null)) { p.x -= ux; p.z -= uz; }
       if (!blockedAt(q.x + ux, q.z + uz, q.team, null)) { q.x += ux; q.z += uz; }
     }
   }
-  updateShots(dt); updateParts(dt);
+  updateShots(dt); updateParts(dt); updateShakes(dt);
   // clean up the fallen
   for (const list of [units, enemies]) for (let k = list.length - 1; k >= 0; k--) {
     const o = list[k];

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.0
+- Map is four times larger (88x88): more forests, lakes and hills to expand into. Raids still muster about 21 tiles from the Hall, the sun and its shadows follow the camera, and you can zoom out further.
+- Skyward Age, a seventh age after Clockwork: white composite and cyan glass, glowing barrier walls (1850 hp), Skyscrapers (2x2, house 12, windows lit at night), Laser Towers (a beam every 0.6 s at 10 tiles), the Sky Port and Sky Skiffs: flying fox gunships that cross walls, water and crowds, with the level 3 ability Strafing Run. Airships and a courier drone cruise over a Skyward town.
+- Restoring resources: Plant Saplings (12 food) and Berry Beds (10 wood, 6 food) in the Town tab, drag to plant rows; they grow into trees worth 30 wood and bushes worth 24 berries. Together with regrowth and building incomes, nothing can run out for good.
+- Gathering animations: settlers swing an axe or pick, trees and rocks shake when struck, leaves and sparks fly, and new plantings sprout.
+- Defenders no longer freeze at rally points: rally spots are assigned to living defenders (not a lifetime counter), a defender boxed in near its spot accepts it, and one that cannot reach its spot tries a neighbouring one instead of standing still. In the full campaign test this took freeze resets from 77 to 0.
+- Water shimmer is now continuous instead of stepping (which flickered).
+- Fix: a resource node removed while a settler walked to it was still gathered from.
+- A test suite in tests/ (npm test): economy, raids, stuck-unit stress, pocket and trap rules, save round trips, UI, performance, and scripted campaigns on every difficulty, including a full 25-raid run through all seven ages.
+
 ## 1.8.1
 - Fix: settlers you had once sent to a tree, rock or bush kept that preference for the rest of the game, so they could chop wood forever while stone sat at zero. The preference now lasts 90 seconds and is dropped as soon as that resource is plentiful.
 - No resource can run out for good: the hills shed new boulders (up to 26 rocks), berry bushes reseed and gold veins surface slowly, always in reachable spots. The Quarry now also digs 0.12 stone a second on its own.

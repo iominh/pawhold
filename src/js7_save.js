@@ -133,7 +133,7 @@ function loadFrom(slot) {
   applySnapshot(s); sfx('level'); toast(`Loaded ${SAVE_SLOTS.find(x => x[0] === slot)[1]}`);
 }
 let gameStarted = false;
-let autoT = 20;
+let autoT = 15;
 function autosaveTick(dt) {
   if (!gameStarted || G.paused || G.over) return;
   autoT -= dt;
@@ -225,6 +225,6 @@ function refreshContinue() {
   $('introVer').textContent = `Version ${GAME_VERSION}`;
   $('contBtn').addEventListener('click', () => { const s = contSlot && storeGet(contSlot); if (!s) return; audioInit(); gameStarted = true; applySnapshot(s); sfx('level'); });
   refreshContinue();
-  $('startBtn').addEventListener('click', () => { gameStarted = true; autoT = 20; });
-  $('againBtn').addEventListener('click', () => { gameStarted = true; autoT = 20; });
+  $('startBtn').addEventListener('click', () => { gameStarted = true; autoT = 15; });
+  $('againBtn').addEventListener('click', () => { gameStarted = true; autoT = 15; });
 })();

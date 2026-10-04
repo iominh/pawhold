@@ -1,6 +1,6 @@
 # Pawhold
 
-A 3D voxel medieval city-builder in the browser. A clan of foxes, pandas, rabbits and bears settles a valley, raises a town, walls it in and holds it against wolves, boars, raccoons and badger rams through six ages (Hamlet, Medieval Town, Castle Age, Gunpowder Age, Imperial Age, Clockwork Age). Survive 25 raids to finish the chronicle.
+A 3D voxel medieval city-builder in the browser. A clan of foxes, pandas, rabbits and bears settles a valley, raises a town, walls it in and holds it against wolves, boars, raccoons and badger rams through seven ages (Hamlet, Medieval Town, Castle Age, Gunpowder Age, Imperial Age, Clockwork Age, Skyward Age). Survive 25 raids to finish the chronicle.
 
 Plain HTML + [Three.js r128](https://threejs.org/), no framework and no build step needed to run. Installable as a PWA and playable offline.
 
@@ -48,3 +48,7 @@ npm run build:pwa
 ## Credits
 
 Three.js is MIT licensed, see `vendor/THREE-LICENSE`. All sound is synthesized live with the Web Audio API.
+
+## Tests
+
+`npm install` once (jsdom), then `npm test`. The suite assembles the game from `src/`, runs it headless, and plays scripted campaigns on every difficulty.

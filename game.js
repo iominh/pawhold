@@ -1,7 +1,7 @@
-const GAME_VERSION = '1.8.1', GAME_BUILD = '1e4adec';
+const GAME_VERSION = '1.9.0', GAME_BUILD = '9c99174';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
-const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 25;
+const MAP = 88, KX = 44, KZ = 44, MARGIN = 3, TOTAL_WAVES = 25, RAID_DIST = 21;   // raiders muster about 21 tiles out, whatever the map size
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => Math.floor(rnd(a, b + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -14,36 +14,44 @@ const AGES = [
   { name: 'Castle Age', sky: 0xf0d9ae, sun: 0xffe2a8, sunI: 0.85, pal: { wall: 0x9ca3aa, roof: 0x3e6199, trim: 0xcfd4d8, beam: 0x6c737a, flag: 0x2f5fb3 } },
   { name: 'Gunpowder Age', sky: 0xc9b6dc, sun: 0xffd2b0, sunI: 0.8, pal: { wall: 0xb9bec6, roof: 0x2e3a55, trim: 0xe3b44e, beam: 0x8a919a, flag: 0x7a2fb3 } },
   { name: 'Imperial Age', sky: 0xe3d3c2, sun: 0xffe6c4, sunI: 0.86, pal: { wall: 0xe9e3d7, roof: 0x8c2d3a, trim: 0xd4af37, beam: 0x7a6a5a, flag: 0xb3122e } },
-  { name: 'Clockwork Age', sky: 0xc4d4de, sun: 0xfff1dc, sunI: 0.9, pal: { wall: 0x707b87, roof: 0xb87333, trim: 0xe0b24a, beam: 0x3f464f, flag: 0x1f8a70 } }
+  { name: 'Clockwork Age', sky: 0xc4d4de, sun: 0xfff1dc, sunI: 0.9, pal: { wall: 0x707b87, roof: 0xb87333, trim: 0xe0b24a, beam: 0x3f464f, flag: 0x1f8a70 } },
+  { name: 'Skyward Age', sky: 0x9fc6ff, sun: 0xfff8ee, sunI: 0.95, pal: { wall: 0xdfe6f0, roof: 0x2cc4d8, trim: 0x7fe0ff, beam: 0x3b4a5a, flag: 0x00e5ff } }
 ];
 const AGE_COST = [null,
   { wood: 150, food: 120 },
   { wood: 260, stone: 200, food: 180, gold: 60 },
   { wood: 320, stone: 380, food: 300, gold: 260 },
   { wood: 420, stone: 540, food: 420, gold: 440 },
-  { wood: 540, stone: 720, food: 560, gold: 720 }];
+  { wood: 540, stone: 720, food: 560, gold: 720 },
+  { wood: 600, stone: 900, food: 700, gold: 1000 }];
 
 const DIFF = {
   gentle: { name: 'Gentle', first: 150, gapHi: 100, gapLo: 60, count: 0.65, mult: 0.8, blurb: 'Fewer, weaker raiders and long breaks between raids. Good for learning the valley.' },
   normal: { name: 'Normal', first: 120, gapHi: 74, gapLo: 48, count: 0.85, mult: 0.95, blurb: 'A fair fight. Raids come about every minute and grow steadily.' },
   hard:   { name: 'Hard', first: 90, gapHi: 64, gapLo: 40, count: 1.0, mult: 1.0, blurb: 'The original pace: fast raids, full packs, a boss every fifth raid.' }
 };
-const WALL_COST = [{ wood: 6 }, { stone: 8 }, { stone: 10 }, { stone: 12 }, { stone: 14, gold: 2 }, { stone: 16, gold: 4 }];
-const WALL_HP = [110, 340, 520, 760, 1050, 1400];
+const WALL_COST = [{ wood: 6 }, { stone: 8 }, { stone: 10 }, { stone: 12 }, { stone: 14, gold: 2 }, { stone: 16, gold: 4 }, { stone: 18, gold: 6 }];
+const WALL_HP = [110, 340, 520, 760, 1050, 1400, 1850];
+// drag-to-paint buildings: walls and plantings
 const BDEF = {
   house:    { name: 'Burrow House', cat: 'town', size: 1, age: 0, cost: { wood: 20 }, hp: 90, time: 3, pop: 3, r: 0.8, blurb: 'Shelter for 3 animals.', role: 'Housing', what: 'Burrows where your animals sleep. Every house raises the population cap by 3.', help: 'More animals means more settlers gathering and more defenders. New settlers only arrive while there is room, and soldiers count against the cap too.', tip: 'If the pop counter is full (say 8/8), nobody new will join. Build houses before you need them.' },
   farm:     { name: 'Berry Farm', cat: 'town', size: 1, age: 0, cost: { wood: 30 }, hp: 70, time: 4, r: 0.8, drop: ['food'], income: { food: 0.55 }, blurb: 'Grows food. Berries are dropped off here.', role: 'Food', what: 'A berry patch tended automatically.', help: 'Makes 0.55 food a second on its own, and settlers drop berries off here. Food feeds new settlers (25 each) and trains soldiers.', tip: 'Build beside berry bushes or close to the Hall to keep carry trips short.' },
   camp:     { name: 'Lumber Camp', cat: 'town', size: 1, age: 0, cost: { wood: 35 }, hp: 90, time: 3, r: 0.8, drop: ['wood'], blurb: 'Wood drop-off. Build beside a forest.', role: 'Wood drop-off', what: 'A stockpile where choppers unload their logs.', help: 'Settlers carry 8 wood a trip, so a long walk wastes most of their day. A camp beside a forest cuts the walk, and drop-offs here pay +25% over the Great Hall.', tip: 'Place it on the edge of a forest, not in the middle of your town.' },
+  sapling:  { name: 'Plant Saplings', cat: 'town', size: 1, age: 0, cost: { food: 12 }, hp: 20, time: 6, r: 0.5, plant: 'wood', blurb: 'Grows a new tree where you place it.', role: 'Forestry', what: 'Settlers plant a sapling that grows into a full tree.', help: 'Once planted it becomes a tree worth 30 wood, and nearby saplings grow into a grove. Drag to plant a row. The way to bring a forest back next to your Lumber Camp.', tip: 'Plant right beside the camp so every trip is short.' },
+  berrybed: { name: 'Berry Bed', cat: 'town', size: 1, age: 0, cost: { wood: 10, food: 6 }, hp: 20, time: 5, r: 0.5, plant: 'food', blurb: 'Grows a new berry bush.', role: 'Forestry', what: 'A bed of seedlings that becomes a berry bush.', help: 'Becomes a bush worth 24 berries once planted. Drag to plant a patch near a Berry Farm.', tip: 'Bushes do not need tending: settlers pick them like any other bush.' },
   quarry:   { name: 'Quarry', cat: 'town', size: 1, age: 1, cost: { wood: 50 }, hp: 120, time: 5, r: 0.8, drop: ['stone', 'gold'], income: { stone: 0.12 }, blurb: 'Stone and gold drop-off. Build beside rocks.', role: 'Stone and gold drop-off', what: 'A stone yard where miners unload rock and gold.', help: 'Stone builds walls, towers and new ages. Like the camp, it pays +25% on everything dropped here and saves long trips, and its quarrymen dig 0.12 stone a second on their own even when the rocks are gone.', tip: 'Put it next to grey rocks or gold veins.' },
   market:   { name: 'Market', cat: 'town', size: 1, age: 1, cost: { wood: 70, stone: 20 }, hp: 120, time: 5, r: 0.8, income: { gold: 0.45 }, blurb: 'Trades goods for a trickle of gold.', role: 'Gold income', what: 'Traders pay a steady stream of gold.', help: 'Earns 0.45 gold a second with no workers needed. Gold trains Guards, Knights and Musketeers, upgrades weapons and buys new ages.', tip: 'Several markets fund a much bigger army. They are safest inside your walls.' },
   barracks: { name: 'Barracks', cat: 'army', size: 2, age: 0, cost: { wood: 80, stone: 10 }, hp: 260, time: 7, r: 1.4, blurb: 'Trains defenders. Needed for the units below.', role: 'Training', what: 'Where defenders are trained. Open the Army tab and pick a unit.', help: 'Without one you cannot train soldiers. Defenders gather on the side raiders are coming from, fight them, and level up from kills. Select them and right-click to give orders.', tip: 'Build it near the Hall. Soldiers also count against housing.' },
   smith:    { name: 'Blacksmith', cat: 'army', size: 1, age: 2, cost: { wood: 60, stone: 60 }, hp: 160, time: 6, r: 0.8, blurb: 'Sharpens every weapon in the valley.', role: 'Weapon upgrades', what: 'A forge that sharpens every weapon in the valley.', help: 'Unlocks the Sharpen Weapons upgrade in the Army tab: +20% damage per level for every defender and tower, up to three levels.', tip: 'Worth it before the boss raids at 5, 10 and 15.' },
-  wall:     { name: 'Wall', cat: 'defense', size: 1, age: 0, wall: true, r: 0.6, time: 1.6, get cost() { return WALL_COST[Math.min(G.age, WALL_COST.length - 1)]; }, get hp() { return WALL_HP[Math.min(G.age, WALL_HP.length - 1)]; }, blurb: 'Drag to draw a line. Upgrades itself as you advance.', role: 'Wall', what: 'A line of defence that grows with your clan: wooden stakes in the Hamlet, stone from the Medieval Town, battlements in the Castle Age, reinforced stone with the Gunpowder Age, marble in the Imperial Age and iron-bound in the Clockwork Age.', help: 'Raiders must chew through it or walk around. Your own animals walk straight through. Every time you advance an age, every wall you have already built is rebuilt stronger for free, keeping its damage. It funnels raiders to where your towers and archers can reach them.', tip: 'Drag to draw a line. A gap in front of your towers makes a kill zone. New walls cost more stone as the ages go on.' },
+  wall:     { name: 'Wall', cat: 'defense', size: 1, age: 0, wall: true, r: 0.6, time: 1.6, get cost() { return WALL_COST[Math.min(G.age, WALL_COST.length - 1)]; }, get hp() { return WALL_HP[Math.min(G.age, WALL_HP.length - 1)]; }, blurb: 'Drag to draw a line. Upgrades itself as you advance.', role: 'Wall', what: 'A line of defence that grows with your clan: wooden stakes in the Hamlet, stone from the Medieval Town, battlements in the Castle Age, reinforced stone with the Gunpowder Age, marble in the Imperial Age, iron-bound in the Clockwork Age and a glowing barrier in the Skyward Age.', help: 'Raiders must chew through it or walk around. Your own animals walk straight through. Every time you advance an age, every wall you have already built is rebuilt stronger for free, keeping its damage. It funnels raiders to where your towers and archers can reach them.', tip: 'Drag to draw a line. A gap in front of your towers makes a kill zone. New walls cost more stone as the ages go on.' },
   tower:    { name: 'Watchtower', cat: 'defense', size: 1, age: 0, cost: { wood: 45, stone: 5 }, hp: 240, time: 5, r: 0.8, range: 7, dmg: 8, rate: 1.1, shot: 'arrow', blurb: 'A fox archer keeps watch.', role: 'Ranged defense', what: 'A fox archer keeps watch from the top.', help: 'Shoots raiders within 7 tiles with no housing or food cost. Damage grows with each age and weapon upgrade.', tip: 'Place a few just behind your walls so raiders stall in range.' },
   ballista: { name: 'Ballista Tower', cat: 'defense', size: 1, age: 2, cost: { wood: 70, stone: 70 }, hp: 360, time: 7, r: 0.8, range: 9.5, dmg: 36, rate: 2.1, shot: 'bolt', blurb: 'Heavy bolts at long range.', role: 'Heavy ranged defense', what: 'A crossbow turret with a long reach.', help: 'Fires heavy bolts out to 9.5 tiles for 36 damage each. Slow, but great against boars, badger rams and the Warlord.', tip: 'Pair with cheaper watchtowers to cover the gaps while it reloads.' },
   cannon:   { name: 'Cannon Tower', cat: 'defense', size: 1, age: 3, cost: { stone: 90, gold: 70 }, hp: 460, time: 8, r: 0.8, range: 8.5, dmg: 58, rate: 3, splash: 1.7, shot: 'ball', blurb: 'Explosive damage in an area.', role: 'Area defense', what: 'A gunpowder cannon that blasts whole packs.', help: 'Cannonballs explode for 58 damage in a wide splash, so raiders bunched at your wall take it all at once.', tip: 'Best right behind a wall where raiders pile up.' },
   bombard:  { name: 'Bombard Tower', cat: 'defense', size: 1, age: 4, cost: { stone: 170, gold: 150 }, hp: 640, time: 9, r: 0.8, range: 11, dmg: 115, rate: 4.2, splash: 2.4, shot: 'ball', blurb: 'A huge mortar for the biggest packs.', role: 'Siege defense', what: 'A great bronze bombard on a marble base.', help: 'Lobs a massive shell out to 11 tiles for 115 area damage. Slow to reload, but a direct hit on a bunched raid is devastating, and it is the answer to trolls.', tip: 'Place it centrally: its reach covers most of the town.' },
   turret:   { name: 'Clockwork Turret', cat: 'defense', size: 1, age: 5, cost: { stone: 120, gold: 230 }, hp: 540, time: 8, r: 0.8, range: 8, dmg: 26, rate: 0.42, shot: 'bullet', blurb: 'Rapid-fire brass gun.', role: 'Rapid defense', what: 'A brass turret that fires without pause.', help: 'A shot every 0.4 seconds out to 8 tiles. Shreds dire wolves and anything fast, and never runs out of ammunition.', tip: 'Pair it with a Bombard: the turret handles the fast ones while the bombard breaks the big ones.' },
+  skyscraper: { name: 'Skyscraper', cat: 'town', size: 2, age: 6, cost: { stone: 220, gold: 160 }, hp: 900, time: 12, pop: 12, r: 1.4, blurb: 'A tower of homes: houses 12.', role: 'Housing', what: 'A glass-and-composite tower that reaches for the clouds.', help: 'Houses 12 animals on a 2x2 footprint, four times a Burrow House on a quarter of the land. Its windows light up at night.', tip: 'Replace clusters of old houses with one tower to free space inside the walls.' },
+  laser:    { name: 'Laser Tower', cat: 'defense', size: 1, age: 6, cost: { stone: 150, gold: 320 }, hp: 700, time: 9, r: 0.8, range: 10, dmg: 34, rate: 0.6, shot: 'laser', blurb: 'A beam that never misses.', role: 'Beam defense', what: 'A slender pylon with a focusing lens.', help: 'Fires a beam every 0.6 seconds out to 10 tiles for 34 damage. Fast, long and accurate: the all-round defense of the Skyward Age.', tip: 'A ring of lasers around the walls makes the valley very hard to approach.' },
+  skyport:  { name: 'Sky Port', cat: 'army', size: 2, age: 6, cost: { stone: 200, gold: 300 }, hp: 700, time: 12, r: 1.4, blurb: 'Launch pad for Sky Skiffs.', role: 'Flight', what: 'A landing pad with a maintenance drone.', help: 'Needed to train Sky Skiffs, the flying defenders that ignore walls, water and crowds. Skiffs launch from here.', tip: 'Build it inside the walls; skiffs can fly out over them.' },
   infirmary: { name: 'Healing Hut', cat: 'town', size: 1, age: 0, cost: { wood: 55, stone: 10 }, hp: 130, time: 5, r: 0.8, heal: 5, blurb: 'Heals animals and buildings nearby.', role: 'Healing', what: 'A cosy hut with a panda healer inside.', help: 'Animals within 5 tiles heal 3 hp a second and nearby buildings are mended too. Keeps your front line alive between raids.', tip: 'Put it just behind your walls where wounded defenders gather.' },
   keep:     { name: 'Great Hall', cat: 'none', size: 3, age: 0, cost: {}, hp: 1200, time: 1, r: 2.1, drop: ['wood', 'stone', 'food', 'gold'], pop: 5, blurb: 'The heart of the clan.', role: 'Heart of the clan', what: 'Your Great Hall. If it falls, the game is lost.', help: 'Settlers drop all resources off here and new ones arrive from it. It houses 5 animals and heals those standing close. It grows tougher with each age.', tip: 'Defend it above all else. Nothing else is as hard to replace.' }
 };
@@ -54,6 +62,7 @@ const UDEF = {
   knight: { name: 'Bear Knight', sp: 'bear', hp: 240, speed: 1.9, dmg: 22, rate: 1.1, range: 1.3, cost: { food: 70, gold: 55 }, age: 2, blurb: 'Armoured heavy hitter.', role: 'Heavy hitter', what: 'An armoured bear that hits hard.', help: 'High health and strong attacks, ideal against badger rams and the Warlord. At level 3 learns Cleave, a spinning area strike.', tip: 'Unlocks in the Castle Age.' },
   lancer: { name: 'Elk Lancer', sp: 'elk', hp: 200, speed: 2.6, dmg: 30, rate: 1.0, range: 1.4, cost: { food: 90, gold: 85 }, age: 4, blurb: 'Fast, hard-hitting cavalry.', role: 'Shock cavalry', what: 'A tall elk with a steel lance.', help: 'Quick and strong, perfect for chasing down raccoon slingers and dire wolves. At level 3 learns Stampede: a charge that knocks back every raider in its path.', tip: 'Unlocks in the Imperial Age.' },
   sage:   { name: 'Owl Sage', sp: 'owl', hp: 80, speed: 2.3, dmg: 44, rate: 1.6, range: 7.5, cost: { food: 80, gold: 140 }, age: 5, shot: 'bolt', blurb: 'Long-range bolts and a healing song.', role: 'Support caster', what: 'A wise owl with a brass staff.', help: 'Fires bolts from 7.5 tiles. At level 3 learns Hoot of Courage: every defender within 4 tiles heals 30% of its health.', tip: 'Unlocks in the Clockwork Age. Keep it behind the line.' },
+  skiff:  { name: 'Sky Skiff', sp: 'fox', hp: 160, speed: 3.3, dmg: 30, rate: 0.9, range: 6.5, cost: { food: 100, gold: 230 }, age: 6, shot: 'laser', fly: true, blurb: 'A flying fox gunship.', role: 'Flying defender', what: 'A fox pilot in a hovering skiff.', help: 'Flies straight over walls, water and crowds, so it is always where you need it. Beam weapon with 6.5 tiles of reach. At level 3 learns Strafing Run: a beam sweep that hits every raider within 5 tiles.', tip: 'Needs a Sky Port. Unlocks in the Skyward Age.' },
   musket: { name: 'Rabbit Musketeer', sp: 'rabbit', hp: 44, speed: 2.2, dmg: 24, rate: 1.9, range: 7, cost: { food: 45, gold: 60 }, age: 3, shot: 'bullet', blurb: 'Powder and long range.', role: 'Long-range damage', what: 'A rabbit with a flintlock.', help: 'Slow but powerful shots from 7 tiles. At level 3 learns Aimed Shot: one huge hit.', tip: 'Unlocks in the Gunpowder Age.' }
 };
 const EDEF = {
@@ -176,6 +185,7 @@ function addNode(type, i, j, amt) {
   return n;
 }
 function removeNode(n) {
+  n.amt = 0;   // anyone walking to it lets go
   scene.remove(n.group);
   const k = nodes.indexOf(n); if (k >= 0) nodes.splice(k, 1);
   if (nodeAt[n.i][n.j] === n) nodeAt[n.i][n.j] = null;
@@ -437,11 +447,23 @@ function addGear(g, role, sp) {
     box(head, -hw / 2 - 0.03, hw - 0.02, -0.03, hw + 0.06, 0.06, hw * 0.9 + 0.06, 0x1f8a70);
     box(head, -0.05, hw + 0.04, 0.02, 0.1, 0.16, 0.1, 0x1f8a70);
     box(g, S.bw / 2 + 0.06, S.ly, 0.05, 0.04, 0.8, 0.04, 0x7b5232); box(g, S.bw / 2 + 0.03, S.ly + 0.8, 0.02, 0.1, 0.1, 0.1, 0xe0b24a, LAMP);
+  } else if (role === 'skiff') {   // the fox sits in a hovering skiff: hull below, canopy ring, thruster glow
+    for (const p of g.userData.legs) p.visible = false;
+    box(g, -S.bw / 2 - 0.12, S.ly - 0.3, -S.bd / 2 - 0.16, S.bw + 0.24, 0.16, S.bd + 0.36, 0xdfe6f0);
+    box(g, -S.bw / 2 - 0.08, S.ly - 0.16, -S.bd / 2 - 0.1, S.bw + 0.16, 0.08, S.bd + 0.2, 0x2cc4d8);
+    box(g, -0.08, S.ly - 0.42, -S.bd / 2 - 0.05, 0.16, 0.12, 0.16, 0x7fe0ff, LAMP); box(g, -0.08, S.ly - 0.42, S.bd / 2 - 0.1, 0.16, 0.12, 0.16, 0x7fe0ff, LAMP);
+    box(g, S.bw / 2 + 0.05, S.ly + 0.1, -0.1, 0.05, 0.05, 0.6, 0x3b4a5a); box(g, S.bw / 2 + 0.035, S.ly + 0.085, 0.45, 0.08, 0.08, 0.1, 0x5cf0ff, LAMP);
+    box(head, -hw / 2 - 0.02, hw - 0.02, -0.02, hw + 0.04, 0.08, hw * 0.9 + 0.04, 0xdfe6f0);
   } else if (role === 'worker') {
     box(head, -hw / 2 - 0.04, hw - 0.02, -0.04, hw + 0.08, 0.04, hw * 0.9 + 0.08, 0xe2c36b);
     const c = sp === 'panda' ? box(g, -0.1, S.ly + 0.06, -S.bd / 2 - 0.14, 0.2, 0.2, 0.14, 0xffffff) : box(g, -0.1, S.ly + S.bh, -0.12, 0.2, 0.16, 0.2, 0xffffff);
     c.visible = false;
     g.userData.carry = c;
+    // a tool in the right paw, shown only while working: axe head one side, pick the other, swapped by what is being gathered
+    const tool = new THREE.Group(); tool.position.set(S.bw / 2 + 0.06, S.ly + S.bh * 0.5, S.bd / 2 - 0.05);
+    box(tool, -0.02, -0.05, -0.02, 0.04, 0.42, 0.04, 0x7b5232);
+    const axe = box(tool, -0.02, 0.3, 0.02, 0.1, 0.12, 0.04, 0xcfd4d8), pick = box(tool, -0.12, 0.33, -0.015, 0.24, 0.04, 0.03, 0x8a919a);
+    tool.visible = false; g.add(tool); g.userData.tool = tool; g.userData.axe = axe; g.userData.pick = pick;
   }
 }
 
@@ -484,6 +506,16 @@ function buildModel(b) {
       box(g, -0.08, 0.3, 0.36, 0.16, 0.1, 0.02, 0xffffff);
       box(g, 0.2, 0.26, 0.34, 0.1, 0.1, 0.03, 0xbfe3f2, LAMP);
       box(g, -0.3, 0.08, 0.2, 0.1, 0.12, 0.1, 0x5fa05a); box(g, -0.28, 0.2, 0.22, 0.06, 0.06, 0.06, 0xf2c14e);
+      break;
+    case 'sapling':
+      box(g, -0.3, 0, -0.3, 0.6, 0.05, 0.6, 0x5a4030);
+      box(g, -0.03, 0.05, -0.03, 0.06, 0.35, 0.06, 0x6b4a2f); box(g, -0.12, 0.3, -0.12, 0.24, 0.16, 0.24, 0x6fcf57);
+      [[-0.22, -0.22], [0.14, -0.22], [-0.22, 0.14], [0.14, 0.14]].forEach(([x, z]) => box(g, x, 0.05, z, 0.08, 0.1, 0.08, 0x7fd45f));
+      break;
+    case 'berrybed':
+      box(g, -0.32, 0, -0.32, 0.64, 0.06, 0.64, 0x6b4a2f);
+      for (let k = 0; k < 3; k++) for (let m = 0; m < 3; m++) box(g, -0.24 + k * 0.18, 0.06, -0.24 + m * 0.18, 0.1, 0.1, 0.1, (k + m) % 2 ? 0x5aae4a : 0x4c9a3e);
+      box(g, -0.05, 0.14, -0.05, 0.08, 0.08, 0.08, 0xd9344a);
       break;
     case 'farm':
       box(g, -0.45, 0, -0.45, 0.9, 0.06, 0.9, 0x6b4a2f);
@@ -551,7 +583,8 @@ function buildModel(b) {
           if (nb.s) box(g, -0.04, 0.75, 0.32, 0.08, 0.12, 0.12, c2); if (nb.n) box(g, -0.04, 0.75, -0.44, 0.08, 0.12, 0.12, c2);
         }
         if (A >= 3) box(g, -0.31, 0.5, -0.31, 0.62, 0.06, 0.62, P.trim);   // gold band
-        if (A >= 4) box(g, -0.3, 0.97, -0.3, 0.6, 0.08, 0.6, A >= 5 ? 0xb87333 : 0xe9e3d7);   // marble cap, then copper
+        if (A >= 4) box(g, -0.3, 0.97, -0.3, 0.6, 0.08, 0.6, A >= 6 ? 0x7fe0ff : A >= 5 ? 0xb87333 : 0xe9e3d7, A >= 6 ? LAMP : undefined);   // marble cap, copper, then a glowing barrier rail
+        if (A >= 6) { if (nb.e) box(g, 0.26, 0.5, -0.03, 0.24, 0.06, 0.06, 0x7fe0ff, LAMP); if (nb.w) box(g, -0.5, 0.5, -0.03, 0.24, 0.06, 0.06, 0x7fe0ff, LAMP); if (nb.s) box(g, -0.03, 0.5, 0.26, 0.06, 0.06, 0.24, 0x7fe0ff, LAMP); if (nb.n) box(g, -0.03, 0.5, -0.5, 0.06, 0.06, 0.24, 0x7fe0ff, LAMP); }
       }
       break;
     }
@@ -592,6 +625,43 @@ function buildModel(b) {
       box(tur, -0.05, 0.1, -0.3, 0.1, 0.08, 0.7, 0x5a3a22);
       box(tur, -0.03, 0.16, 0.05, 0.06, 0.04, 0.5, 0xdfe4e8);
       g.add(tur); b.turret = tur;
+      break;
+    }
+    case 'skyscraper': {
+      const h1 = hash(b.i * 3, b.j * 5);
+      box(g, -0.9, 0, -0.9, 1.8, 0.2, 1.8, 0x8a929c);
+      const tiers = [[0.8, 1.4], [0.68, 1.2], [0.56, 1.0], [0.44, 0.6 + h1 * 0.5]];
+      let y = 0.2;
+      for (const [s, hh] of tiers) {
+        box(g, -s, y, -s, s * 2, hh, s * 2, 0xdfe6f0);
+        for (let fl = 0; fl < Math.floor(hh / 0.3); fl++) { const fy = y + 0.08 + fl * 0.3; box(g, -s - 0.01, fy, -s + 0.1, 0.02, 0.14, s * 2 - 0.2, 0xbfe3f2, LAMP); box(g, s - 0.01, fy, -s + 0.1, 0.02, 0.14, s * 2 - 0.2, 0xbfe3f2, LAMP); box(g, -s + 0.1, fy, s - 0.01, s * 2 - 0.2, 0.14, 0.02, 0xbfe3f2, LAMP); box(g, -s + 0.1, fy, -s - 0.01, s * 2 - 0.2, 0.14, 0.02, 0xbfe3f2, LAMP); }
+        box(g, -s - 0.03, y + hh - 0.06, -s - 0.03, s * 2 + 0.06, 0.06, s * 2 + 0.06, 0x2cc4d8);
+        y += hh;
+      }
+      box(g, -0.03, y, -0.03, 0.06, 0.6, 0.06, 0x3b4a5a); box(g, -0.05, y + 0.6, -0.05, 0.1, 0.1, 0.1, 0xff4a6a, LAMP);
+      break;
+    }
+    case 'laser': {
+      box(g, -0.3, 0, -0.3, 0.6, 0.12, 0.6, 0x8a929c);
+      box(g, -0.14, 0.12, -0.14, 0.28, 1.3, 0.28, 0xdfe6f0);
+      [0.4, 0.8].forEach(yy => box(g, -0.17, yy, -0.17, 0.34, 0.06, 0.34, 0x2cc4d8));
+      const tur = new THREE.Group();
+      tur.position.set(0, 1.42, 0);
+      box(tur, -0.2, 0, -0.2, 0.4, 0.14, 0.4, 0x3b4a5a);
+      box(tur, -0.1, 0.12, -0.1, 0.2, 0.2, 0.2, 0xdfe6f0);
+      box(tur, -0.06, 0.16, 0.08, 0.12, 0.12, 0.45, 0x3b4a5a); box(tur, -0.05, 0.17, 0.5, 0.1, 0.1, 0.06, 0x5cf0ff, LAMP);
+      g.add(tur); b.turret = tur;
+      break;
+    }
+    case 'skyport': {
+      box(g, -0.95, 0, -0.95, 1.9, 0.14, 1.9, 0x8a929c);
+      box(g, -0.8, 0.14, -0.8, 1.6, 0.04, 1.6, 0x3b4a5a);
+      [[-0.7, -0.7], [0.5, -0.7], [-0.7, 0.5], [0.5, 0.5]].forEach(([x, z]) => box(g, x, 0.18, z, 0.2, 0.06, 0.2, 0x7fe0ff, LAMP));
+      box(g, -0.6, 0.17, -0.04, 1.2, 0.03, 0.08, 0x7fe0ff, LAMP); box(g, -0.04, 0.17, -0.6, 0.08, 0.03, 1.2, 0x7fe0ff, LAMP);
+      box(g, 0.55, 0.18, -0.9, 0.35, 0.9, 0.35, 0xdfe6f0); box(g, 0.6, 1.08, -0.85, 0.25, 0.2, 0.25, 0x2cc4d8);
+      const dr = new THREE.Group(); dr.position.set(-0.3, 0.9, 0.2);
+      box(dr, -0.12, 0, -0.12, 0.24, 0.12, 0.24, 0xdfe6f0); box(dr, -0.3, 0.12, -0.02, 0.6, 0.03, 0.04, 0x3b4a5a); box(dr, -0.02, 0.12, -0.3, 0.04, 0.03, 0.6, 0x3b4a5a); box(dr, -0.05, -0.08, -0.05, 0.1, 0.08, 0.1, 0x5cf0ff, LAMP);
+      g.add(dr); (g.userData.spin = g.userData.spin || []).push(dr);
       break;
     }
     case 'bombard': {
@@ -700,6 +770,8 @@ function iso(cx, cy, w, h, top, side) {
 const ICONS = {
   house: [[24, 24, 13, 12, 0xd2c2a6, 0xd2c2a6], [24, 17, 16, 5, 0xa5513f, 0xa5513f]],
   infirmary: [[24, 27, 13, 10, 0xf1ebdc, 0xf1ebdc], [24, 19, 15, 5, 0x5fa05a, 0x5fa05a], [24, 26, 3, 4, 0xd9442f, 0xd9442f]],
+  sapling: [[24, 32, 14, 3, 0x5a4030, 0x4a3426], [24, 24, 3, 9, 0x6b4a2f, 0x4a3426], [24, 16, 9, 6, 0x6fcf57, 0x4fb243]],
+  berrybed: [[24, 30, 15, 4, 0x6b4a2f, 0x4a3426], [20, 24, 5, 4, 0x5aae4a, 0x3f8a35], [28, 24, 5, 4, 0x5aae4a, 0x3f8a35], [24, 20, 4, 4, 0xd9344a, 0xb52a3c]],
   farm: [[24, 28, 17, 3, 0x6fb04a, 0x6b4a2f], [16, 26, 4, 3, 0xd9344a, 0xd9344a], [30, 28, 4, 3, 0xd9344a, 0xd9344a]],
   camp: [[24, 28, 15, 5, 0x9a6a3c, 0x7a5c3a], [24, 18, 16, 4, 0xd8b85c, 0xb9964a]],
   quarry: [[19, 30, 10, 8, 0xa9afb5, 0x8a9096], [29, 25, 9, 7, 0xb6bcc2, 0x7d848c]],
@@ -711,6 +783,9 @@ const ICONS = {
   tower: [[24, 30, 8, 16, 0xb9bfc5, 0x9aa1a8], [24, 16, 11, 3, 0xc6ccd1, 0xc6ccd1]],
   ballista: [[24, 30, 8, 16, 0xb9bfc5, 0x9aa1a8], [24, 16, 11, 3, 0xc6ccd1, 0xc6ccd1], [24, 12, 6, 2, 0x7b5232, 0x5a3a22]],
   cannon: [[24, 31, 10, 13, 0x6c737a, 0x6c737a], [24, 18, 12, 3, 0xe3b44e, 0xb98c2a], [24, 13, 4, 5, 0x25282c, 0x25282c]],
+  skyscraper: [[24, 34, 14, 6, 0xdfe6f0, 0xb9c3cf], [24, 24, 12, 10, 0xdfe6f0, 0xb9c3cf], [24, 14, 9, 10, 0xdfe6f0, 0xb9c3cf], [24, 10, 2, 5, 0x2cc4d8, 0x2cc4d8]],
+  laser: [[24, 32, 10, 5, 0x8a929c, 0x6f777f], [24, 18, 5, 16, 0xdfe6f0, 0xb9c3cf], [24, 12, 8, 5, 0x3b4a5a, 0x2b3744], [24, 9, 4, 3, 0x5cf0ff, 0x5cf0ff]],
+  skyport: [[24, 30, 20, 5, 0x3b4a5a, 0x2b3744], [24, 28, 10, 2, 0x7fe0ff, 0x7fe0ff], [32, 20, 5, 10, 0xdfe6f0, 0xb9c3cf], [18, 18, 6, 3, 0xdfe6f0, 0xb9c3cf]],
   bombard: [[24, 32, 13, 10, 0xe9e3d7, 0xcfc8ba], [24, 22, 15, 3, 0xd4af37, 0xb8922a], [24, 16, 8, 7, 0x8c6d3a, 0x6b5230]],
   turret: [[24, 31, 9, 15, 0x707b87, 0x5a636e], [24, 16, 11, 3, 0xe0b24a, 0xb8922a], [24, 11, 7, 6, 0xb87333, 0x8f5a28]]
 };
@@ -756,6 +831,16 @@ function puff(x, y, z, color, n, spd, life, size) {
     parts.push({ m, vx: rnd(-1, 1) * spd, vy: rnd(0.4, 1.4) * spd, vz: rnd(-1, 1) * spd, life, max: life, s });
   }
 }
+const SHAKING = [];
+function updateShakes(dt) {   // trees and rocks wobble when struck
+  for (let k = SHAKING.length - 1; k >= 0; k--) {
+    const n = SHAKING[k]; n.shake -= dt;
+    if (n.shake <= 0 || !n.group) { if (n.group) { n.group.rotation.z = 0; n.group.rotation.x = 0; } SHAKING.splice(k, 1); continue; }
+    const a = Math.sin(n.shake * 40) * n.shake * 0.35;
+    n.group.rotation.z = a; n.group.rotation.x = a * 0.5;
+    if (n.growT) { n.growT -= dt; const s = 1 - Math.max(0, n.growT) / 1.2 * 0.65; n.group.scale.setScalar(s); if (n.growT <= 0) { n.growT = 0; n.group.scale.setScalar(1); } }
+  }
+}
 function updateParts(dt) {
   for (let k = parts.length - 1; k >= 0; k--) {
     const p = parts[k];
@@ -769,7 +854,7 @@ function updateParts(dt) {
 const SHOT = {
   arrow: { c: 0x6b4a2f, s: [0.05, 0.05, 0.3], sp: 15 }, bolt: { c: 0xdfe4e8, s: [0.07, 0.07, 0.55], sp: 19 },
   ball: { c: 0x25282c, s: [0.22, 0.22, 0.22], sp: 11 }, bullet: { c: 0xffd36b, s: [0.08, 0.08, 0.2], sp: 26, basic: true },
-  stone: { c: 0x9aa0a6, s: [0.12, 0.12, 0.12], sp: 10 }
+  stone: { c: 0x9aa0a6, s: [0.12, 0.12, 0.12], sp: 10 }, laser: { c: 0x5cf0ff, s: [0.06, 0.06, 1.3], sp: 55, basic: true }
 };
 function shoot(src, tgt, kindName, dmg, splash, fy) {
   const S = SHOT[kindName];
@@ -942,6 +1027,14 @@ function placeBuilding(type, ai, aj, instant) {
   return b;
 }
 function finishBuilding(b) {
+  if (b.def.plant) {   // a planting becomes a resource node the moment it is finished
+    const i = b.i, j = b.j, type = b.def.plant;
+    destroyBuilding(b, true);
+    const n = addNode(type, i, j, type === 'wood' ? 30 : 24);
+    n.group.scale.setScalar(0.35); n.growT = 1.2; if (!SHAKING.includes(n)) { n.shake = 0.6; SHAKING.push(n); }
+    puff(n.x, 0.4, n.z, 0x6fcf57, 8, 1.2, 0.6, 0.08); sfx('done', n.x, n.z);
+    return;
+  }
   b.done = true; b.progress = 1; b.group.scale.y = 1; b.builders = 0;
   if (b.scaf) { scene.remove(b.scaf); b.scaf = null; }
   puff(b.x, b.y + 0.3, b.z, 0xe9e2d0, 10, 1.6, 0.6, 0.18);
@@ -954,8 +1047,7 @@ function destroyBuilding(b, silent) {
   dropBar(b);
   b.cells.forEach(([i, j]) => { if (occ[i][j] === b) occ[i][j] = null; });
   buildings.splice(buildings.indexOf(b), 1); NAV.ver++;
-  sfx('crumble', b.x, b.z);
-  puff(b.x, b.y + 0.5, b.z, 0x9a8f80, 16, 2.4, 0.9, 0.22); puff(b.x, b.y + 0.5, b.z, 0x6b4a2f, 8, 2, 0.8, 0.18);
+  if (!silent || !b.def.plant) { sfx('crumble', b.x, b.z); puff(b.x, b.y + 0.5, b.z, 0x9a8f80, 16, 2.4, 0.9, 0.22); puff(b.x, b.y + 0.5, b.z, 0x6b4a2f, 8, 2, 0.8, 0.18); }
   if (b.def.wall) refreshWalls(b.i, b.j);
   if (G.sel === b) G.sel = null;
   for (const u of units) { if (u.site === b) { u.site = null; u.state = 'idle'; } if (u.rep === b) { u.rep = null; u.state = 'idle'; } if (u.farm === b) { u.farm = null; u.state = 'idle'; } }
@@ -1014,7 +1106,8 @@ const ABIL = {
   knight: { name: 'Cleave', cd: 16, desc: 'Strikes every raider within 1.8 tiles for 2x damage.' },
   musket: { name: 'Aimed Shot', cd: 18, desc: 'One shot for 4x damage.' },
   lancer: { name: 'Stampede', cd: 20, desc: 'Charges 3 tiles ahead, hitting raiders in the way for 1.6x damage and shoving them aside.' },
-  sage: { name: 'Hoot of Courage', cd: 24, desc: 'Every defender within 4 tiles heals 30% of its health.' }
+  sage: { name: 'Hoot of Courage', cd: 24, desc: 'Every defender within 4 tiles heals 30% of its health.' },
+  skiff: { name: 'Strafing Run', cd: 16, desc: 'A beam sweep that hits every raider within 5 tiles for 1.2x damage.' }
 };
 function applyStats(u) {
   const d = u.def, L = u.lvl - 1;
@@ -1086,6 +1179,9 @@ function useAbility(u) {
       const sp = validSpot(u.x + fx * 3, u.z + fz * 3); u.x = sp[0]; u.z = sp[1]; u.path = null;
       puff(u.x, 0.4, u.z, 0xd9c9a0, 14, 2.6, 0.5, 0.12); used = true;
     }
+  } else if (u.role === 'skiff') {   // Strafing Run: beam every raider nearby
+    const foes = enemies.filter(e => !e.dead && dist2(u, e) <= 5);
+    if (foes.length) { foes.forEach(e => shoot(u, e, 'laser', dmg * 1.2, 0, 1.2)); used = true; }
   } else if (u.role === 'sage') {   // Hoot of Courage: heal every defender nearby
     const allies = units.filter(o => !o.dead && o.role !== 'worker' && dist2(u, o) <= 4 && o.hp < o.maxhp);
     if (allies.length) { allies.forEach(o => { o.hp = Math.min(o.maxhp, o.hp + o.maxhp * 0.3); dropBar(o); if (o.hp < o.maxhp) showBar(o); puff(o.x, o.y + 0.9, o.z, 0x7be07b, 6, 1.2, 0.6, 0.1); }); used = true; }
@@ -1147,8 +1243,8 @@ function wantsToMove(u) {
   if (u.role === 'worker') return !!MOVING_STATES[u.state];
   if (u.order) return true;
   if (u.hold || u.tgt || u.giveUp > G.t) return false;
-  const sp = u.home || rallyPos(u.slot);
-  return Math.hypot(sp[0] - u.x, sp[1] - u.z) > 1.2;
+  const sp = u.home || rallyPos(u.rIdx || 0);
+  return Math.hypot(sp[0] - u.x, sp[1] - u.z) > 2.6;
 }
 function freezeGuard(dt) {
   DIAG.t -= dt; if (DIAG.t > 0) return; DIAG.t = 0.5;
@@ -1170,6 +1266,7 @@ function freezeGuard(dt) {
   }
 }
 function watchdog(u, dt) {
+  if (u.fly) { u.wdT = 0; return; }
   if (u.team === 0 && !reachAt(Math.round(u.x), Math.round(u.z))) { escapePocket(u); u.wdT = 0; return; }
   if (blockedAt(u.x, u.z, u.team === 0 ? 0 : 1, null) === true || (u.team === 0 && blockedAt(u.x, u.z, 0, null))) {   // standing inside a building or cliff: step out to the nearest free spot
     const sp = validSpot(u.x, u.z); u.x = sp[0]; u.z = sp[1]; u.path = null; u.wdT = 0; return;
@@ -1346,6 +1443,13 @@ function losClear(team, x0, z0, x1, z1, ignoreB) {
 // Walk toward (tx,tz) by the best route. Returns like stepToward, plus `breach` when a raider reaches a wall or building on its route.
 function moveTo(u, tx, tz, dt, ignoreB) {
   const d = Math.hypot(tx - u.x, tz - u.z);
+  if (u.fly) {   // flyers go straight there, over everything
+    if (d < 1.2) u.mvNear = G.t; else u.mv = G.t;
+    if (d < 0.001) return { d, blocked: false, moved: false };
+    const sp = Math.min(u.speed * dt, d); u.x += (tx - u.x) / d * sp; u.z += (tz - u.z) / d * sp; u.face = Math.atan2(tx - u.x, tz - u.z); u.moved = true; u.stuckT = 0;
+    u.x = clamp(u.x, 1, MAP - 2); u.z = clamp(u.z, 1, MAP - 2);
+    return { d, blocked: false, moved: true };
+  }
   if (d < 1.2) u.mvNear = G.t; else u.mv = G.t;
   if (d < 0.001) return { d, blocked: false, moved: false };
   if (d < 0.6 || (G.t > (u.noLos || 0) && losClear(u.team, u.x, u.z, tx, tz, ignoreB))) {
@@ -1387,7 +1491,7 @@ function moveTo(u, tx, tz, dt, ignoreB) {
 
 function animateUnit(u, dt) {
   const m = u.model, ud = m.userData;
-  u.y += (groundAt(u.x, u.z) - u.y) * Math.min(1, dt * 10);
+  u.y += ((groundAt(u.x, u.z) + (u.fly ? 1.1 + Math.sin(G.t * 2.1 + (u.slot || 0)) * 0.12 : 0)) - u.y) * Math.min(1, dt * 10);
   m.position.set(u.x, u.y, u.z);
   u.vis = turnTo(u.vis === undefined ? u.face : u.vis, u.face, dt * 10);
   m.rotation.y = u.vis;
@@ -1397,6 +1501,16 @@ function animateUnit(u, dt) {
   const bob = u.moved ? Math.abs(Math.sin(u.walk)) * 0.05 : (u.state === 'gather' || u.state === 'build') ? Math.abs(Math.sin(G.t * 9)) * 0.07 : 0;
   m.position.y = u.y + bob;
   if (u.atk > 0) { u.atk -= dt; ud.body.position.z = Math.sin(clamp(u.atk / 0.25, 0, 1) * Math.PI) * 0.18; } else ud.body.position.z = 0;
+  if (ud.tool) {   // settlers swing a tool while gathering, building, repairing or tending
+    const working = u.state === 'gather' || u.state === 'build' || u.state === 'repair' || u.state === 'farm';
+    ud.tool.visible = working;
+    if (working) {
+      const sw = Math.sin(G.t * 9 + (u.slot || 0)), isPick = u.state === 'gather' && u.node && (u.node.type === 'stone' || u.node.type === 'gold');
+      ud.axe.visible = !isPick; ud.pick.visible = isPick;
+      ud.tool.rotation.x = -0.9 + sw * 0.9; ud.body.rotation.x = Math.max(0, sw) * 0.12;
+      if (ud.head) ud.head.rotation.x = Math.max(0, sw) * 0.25;
+    } else { ud.body.rotation.x = 0; if (ud.head) ud.head.rotation.x = 0; }
+  }
   { const es = u.elite ? 1.12 : 1; if (u.hitT > 0) { u.hitT -= dt; m.scale.set(es * (1 + u.hitT), es * (1 - u.hitT * 1.4), es * (1 + u.hitT)); } else m.scale.set(es, es, es); }
   u.moved = false;
 }
@@ -1514,7 +1628,10 @@ function updateWorker(u, dt) {
       if (u.gt >= 0.8 / (1 + 0.07 * (u.lvl - 1))) {
         u.gt = 0; n.amt--; u.carry++; u.carryType = n.type;
         if (n.type === 'wood') sfx('chop', n.x, n.z); else if (n.type !== 'food') sfx('clink', n.x, n.z);
-        puff(n.x, 0.4, n.z, n.type === 'wood' ? 0x6b4a2f : n.type === 'gold' ? 0xf2c14e : n.type === 'food' ? 0xd9344a : 0xb1b7bd, 2, 1.2, 0.35, 0.07);
+        puff(n.x, 0.4, n.z, n.type === 'wood' ? 0x6b4a2f : n.type === 'gold' ? 0xf2c14e : n.type === 'food' ? 0xd9344a : 0xb1b7bd, 3, 1.3, 0.4, 0.07);
+        if (n.type === 'wood') puff(n.x, 0.9, n.z, pick([0x5cc04a, 0x6fcf57, 0x4fb243]), 3, 0.7, 0.9, 0.08);   // leaves shaken loose
+        else if (n.type !== 'food') puff(n.x, 0.5, n.z, 0xfff1a8, 2, 2.2, 0.25, 0.04);   // sparks
+        n.shake = 0.35; if (!SHAKING.includes(n)) SHAKING.push(n);
         if (n.amt <= 0) { releaseWorker(u); removeNode(n); u.state = 'toDrop'; break; }
       }
       if (u.carry >= carryCap(u)) { releaseWorker(u); u.state = 'toDrop'; }
@@ -1606,7 +1723,7 @@ function makeUnit(role, x, z, spOverride) {
   const u = {
     team: 0, role, sp, def: d, x, z, y: groundAt(x, z), hp: d.hp, maxhp: d.hp, speed: d.speed, model, state: 'idle', face: rnd(0, 6.28),
     walk: 0, atk: 0, cd: rnd(0, 0.5), carry: 0, carryType: null, slot: G.slot++, hgt: 0.8, barW: 0.55, dead: false, wait: 0, think: 0, hitT: 0, moved: false,
-    name: pick(NAMES), lvl: 1, xp: 0, dmgM: 1, abCd: 0, shield: 0, order: null, hold: false, home: null, trait: role === 'worker' ? null : pick(Object.keys(TRAITS)), giveUp: 0
+    name: pick(NAMES), lvl: 1, xp: 0, dmgM: 1, abCd: 0, shield: 0, order: null, hold: false, home: null, fly: !!d.fly, trait: role === 'worker' ? null : pick(Object.keys(TRAITS)), giveUp: 0
   };
   if (u.trait) applyStats(u);
   u.release = () => releaseWorker(u);
@@ -1616,9 +1733,16 @@ function makeUnit(role, x, z, spOverride) {
   units.push(u);
   return u;
 }
-function rallyPos(slot) {
-  const ang = G.threat + ((slot % 9) - 4) * 0.26, r = 5.5 + (Math.floor(slot / 9) % 3) * 0.9;
+/* Rally spots: an arc facing the threat, one spot per living defender (index among the living, not a lifetime counter,
+   so late-game armies do not pile onto the same few tiles). */
+function rallyPos(idx) {
+  const perRing = 9, ring = Math.floor(idx / perRing), k = idx % perRing;
+  const ang = G.threat + (k - 4) * 0.26 + (ring % 2 ? 0.13 : 0), r = 5.5 + ring * 0.95;
   return [KX + Math.cos(ang) * r, KZ + Math.sin(ang) * r];
+}
+function assignRally() {   // called once per step before soldiers think
+  let k = 0;
+  for (const u of units) if (!u.dead && u.role !== 'worker') u.rIdx = k++;
 }
 function engage(u, t, dt, forced) {
   const d = u.def, dd = dist2(u, t);
@@ -1648,7 +1772,7 @@ function updateSoldier(u, dt) {
   const amove = u.order && u.order.type === 'amove';
   let t = u.tgt;
   if (!t || t.dead || dist2(u, t) > (u.hold ? d.range + 1 : 13)) {
-    t = u.tgt = nearest(enemies, u.x, u.z, u.hold ? d.range + 0.3 : 10, e => (e !== u.skip || G.t > u.skipT) && (u.hold || amove || Math.hypot(e.x - KX, e.z - KZ) < 22));
+    t = u.tgt = nearest(enemies, u.x, u.z, u.hold ? d.range + 0.3 : 10, e => (e !== u.skip || G.t > u.skipT) && (u.hold || amove || Math.hypot(e.x - KX, e.z - KZ) < RAID_DIST + 4));
   }
   if (t) { engage(u, t, dt, false); return; }
   if (amove) {
@@ -1658,10 +1782,15 @@ function updateSoldier(u, dt) {
     return;
   }
   if (u.hold || u.giveUp > G.t) return;
-  const sp = u.home || validSpot(...rallyPos(u.slot));
-  if (Math.hypot(sp[0] - u.x, sp[1] - u.z) > 1.0) {
+  const sp = u.home || validSpot(...rallyPos(u.rIdx || 0));
+  const dsp = Math.hypot(sp[0] - u.x, sp[1] - u.z);
+  if (dsp > 1.0) {
     const r = moveTo(u, sp[0], sp[1], dt);
-    if (r.unreachable || (u.stuckT || 0) > 1.5) { u.giveUp = G.t + 4; u.stuckT = 0; if (u.home) u.home = null; }
+    if (r.unreachable || (u.stuckT || 0) > 1.5) {
+      u.stuckT = 0;
+      if (dsp < 2.6) { u.home = [u.x, u.z]; u.giveUp = G.t + 6; }   // close enough and boxed in by friends: this is our spot now
+      else { u.home = validSpot(sp[0] + rnd(-1.5, 1.5), sp[1] + rnd(-1.5, 1.5)); u.giveUp = G.t + 1; }   // try a neighbouring spot instead of sulking
+    }
   }
 }
 
@@ -1745,7 +1874,7 @@ function planWave(n) {
   return list;
 }
 function spawnPoint(a) {
-  const dx = Math.cos(a), dz = Math.sin(a), k = (MAP / 2 - 3.5) / Math.max(Math.abs(dx), Math.abs(dz));
+  const dx = Math.cos(a), dz = Math.sin(a), k = Math.min(RAID_DIST / Math.max(Math.abs(dx), Math.abs(dz)), MAP / 2 - 3.5);
   let x = clamp(KX + dx * k, 3, MAP - 4), z = clamp(KZ + dz * k, 3, MAP - 4);
   for (let r = 0; r < 6; r++) { const i = Math.round(x), j = Math.round(z); if (kind[i][j] === 'g') break; x += dx * -0.8; z += dz * -0.8; }
   return [x, z];
@@ -1795,8 +1924,8 @@ function popCount() { let n = 0; for (const u of units) if (!u.dead) n++; return
 function trainUnit(role) {
   const d = UDEF[role];
   if (G.age < d.age) return toast(`${d.name} needs ${AGES[d.age].name}`, true);
-  const bar = buildings.filter(b => b.type === 'barracks' && b.done).sort((a, b) => dist2(a, G.keepB) - dist2(b, G.keepB))[0];
-  if (!bar) return toast('Build a Barracks first', true);
+  const bar = buildings.filter(b => b.type === (d.fly ? 'skyport' : 'barracks') && b.done).sort((a, b) => dist2(a, G.keepB) - dist2(b, G.keepB))[0];
+  if (!bar) return toast(d.fly ? 'Build a Sky Port first' : 'Build a Barracks first', true);
   if (popCount() >= G.popCap) return toast('Not enough housing. Build more Burrow Houses', true);
   if (!afford(d.cost)) return toast('Not enough resources', true);
   pay(d.cost);
@@ -1896,6 +2025,7 @@ function step(dt) {
   while (G.spawnQ.length && G.spawnQ[0].t <= G.t) { const s = G.spawnQ.shift(); const e = makeEnemy(s.kind, s.x, s.z, s.mult); puff(e.x, 0.5, e.z, 0xe8654f, 6, 1.5, 0.5, 0.12); }
   for (let k = G.markers.length - 1; k >= 0; k--) if (G.t > G.markers[k].until) { scene.remove(G.markers[k].mk); G.markers.splice(k, 1); }
   // actors
+  assignRally();
   for (const u of units) if (!u.dead) { if (u.role === 'worker') updateWorker(u, dt); else updateSoldier(u, dt); }
   for (const e of enemies) if (!e.dead) updateEnemy(e, dt);
   for (const o of units) if (!o.dead) watchdog(o, dt);
@@ -1907,13 +2037,14 @@ function step(dt) {
   const all = units.concat(enemies).filter(o => !o.dead);
   for (let a = 0; a < all.length; a++) for (let b = a + 1; b < all.length; b++) {
     const p = all[a], q = all[b], dx = q.x - p.x, dz = q.z - p.z, d = Math.hypot(dx, dz);
+    if (p.fly || q.fly) continue;
     if (d < 0.42 && d > 0.001) {
       const push = (0.42 - d) * 0.35, ux = dx / d * push, uz = dz / d * push;
       if (!blockedAt(p.x - ux, p.z - uz, p.team, null)) { p.x -= ux; p.z -= uz; }
       if (!blockedAt(q.x + ux, q.z + uz, q.team, null)) { q.x += ux; q.z += uz; }
     }
   }
-  updateShots(dt); updateParts(dt);
+  updateShots(dt); updateParts(dt); updateShakes(dt);
   // clean up the fallen
   for (const list of [units, enemies]) for (let k = list.length - 1; k >= 0; k--) {
     const o = list[k];
@@ -2133,7 +2264,7 @@ function updateParticles(dt, t, cx, cz) {
 /* ---- lightning ---- */
 const bolts = [];
 function strike() {
-  const x = KX + rnd(-16, 16), z = KZ + rnd(-16, 16), g = new THREE.Group();
+  const x = (typeof cam !== 'undefined' ? cam.tx : KX) + rnd(-16, 16), z = (typeof cam !== 'undefined' ? cam.tz : KZ) + rnd(-16, 16), g = new THREE.Group();
   let px = 0;
   for (let k = 0; k < 8; k++) {
     const y = 30 - k * 3.7, nx = px + rnd(-0.9, 0.9);
@@ -2238,7 +2369,8 @@ function updateEnv(dt, now) {
   // lights: the sun arcs east to west, the moon takes over below the horizon
   const dim = 1 - 0.5 * w.cloud;
   const px = sunUp ? ax : -ax, py = sunUp ? ay : -ay;
-  sun.position.set(KX + px * 46, Math.max(11, py * 46), KZ + (sunUp ? 18 : 14));
+  const fx = typeof cam !== 'undefined' ? cam.tx : KX, fz = typeof cam !== 'undefined' ? cam.tz : KZ;
+  sun.position.set(fx + px * 46, Math.max(11, py * 46), fz + (sunUp ? 18 : 14)); sun.target.position.set(fx, 0, fz); sun.target.updateMatrixWorld();
   if (sunUp) C_SUN.setHex(AGES[G.age].sun).lerp(C_DAWN, tw * 0.8); else C_SUN.copy(C_MOON);
   sun.color.copy(C_SUN);
   sun.intensity = (sunUp ? AGES[G.age].sunI * dim * sstep(-0.02, 0.3, ay) : 0.34 * dim * sstep(0.02, 0.3, -ay)) + ENV.flash * 0.6;
@@ -2248,7 +2380,7 @@ function updateEnv(dt, now) {
 
   // sun and moon discs, stars
   sunMesh.visible = w.cloud < 0.85;
-  sunMesh.position.set(KX + (sun.position.x - KX) * 2.2, sun.position.y * 2.2, KZ + (sun.position.z - KZ) * 2.2);
+  sunMesh.position.set(fx + (sun.position.x - fx) * 2.2, sun.position.y * 2.2, fz + (sun.position.z - fz) * 2.2);
   sunMesh.scale.setScalar(lerpN(7, 5, n) * (1 + tw * 0.35));
   if (sunUp) sunMesh.material.color.setHex(0xfff2b0).lerp(cB.setHex(0xff7a30), tw * 0.85); else sunMesh.material.color.setHex(0xe8eeff);
   stars.material.opacity = n * (1 - w.cloud) * 0.9;
@@ -2394,6 +2526,7 @@ const SFX = {
   arrow: o => noise(o, 0.15, 0.2, 'bandpass', 2400, 900, 2),
   bolt: o => { tone(o, 190, 0.25, 'sawtooth', 0.12, 0, 80); noise(o, 0.12, 0.16, 'bandpass', 1500, 600, 2); },
   ball: o => { tone(o, 110, 0.55, 'sine', 0.5, 0, 34); noise(o, 0.45, 0.5, 'lowpass', 900, 120); },
+  laser: o => { tone(o, 1400, 0.14, 'sine', 0.07, 0, 300); tone(o, 2200, 0.1, 'triangle', 0.04, 0.02, 500); },
   bullet: o => { noise(o, 0.1, 0.4, 'highpass', 1800, 0); tone(o, 900, 0.08, 'square', 0.08, 0, 200); },
   stone: o => tone(o, 300, 0.1, 'triangle', 0.1, 0, 150),
   hit: o => { noise(o, 0.08, 0.28, 'lowpass', 700, 200); tone(o, 140, 0.08, 'square', 0.08); },
@@ -2412,7 +2545,7 @@ const SFX = {
   win: o => { [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.G5, NOTE.C6].forEach((f, i) => tone(o, f, 0.5, 'triangle', 0.16, i * 0.16)); },
   lose: o => { [NOTE.A4, NOTE.F5 / 1.26, NOTE.E4, NOTE.A3].forEach((f, i) => tone(o, f, 0.7, 'sawtooth', 0.1, i * 0.3, f * 0.9)); }
 };
-const SFX_GAP = { arrow: 0.06, hit: 0.05, bash: 0.08, coin: 0.25, chop: 0.14, clink: 0.14, hammer: 0.18, die: 0.05, dieFriend: 0.1, bolt: 0.1, stone: 0.08, bullet: 0.06, place: 0.05, spawn: 0.1, click: 0.03, done: 0.1, heal: 0.6, ability: 0.1 };
+const SFX_GAP = { arrow: 0.06, hit: 0.05, bash: 0.08, coin: 0.25, chop: 0.14, clink: 0.14, hammer: 0.18, die: 0.05, dieFriend: 0.1, bolt: 0.1, stone: 0.08, bullet: 0.06, laser: 0.05, place: 0.05, spawn: 0.1, click: 0.03, done: 0.1, heal: 0.6, ability: 0.1 };
 function sfx(name, x, z) {
   const c = AUD.ctx;
   if (!c || AUD.mode === 2 || !SFX[name]) return;
@@ -2485,7 +2618,7 @@ const cam = { tx: KX, tz: KZ, yaw: 0.8, pitch: 0.72, dist: 30 };
 const keys = {};
 function applyCam() {
   cam.tx = clamp(cam.tx, 4, MAP - 5); cam.tz = clamp(cam.tz, 4, MAP - 5);
-  cam.dist = clamp(cam.dist, 10, 62); cam.pitch = clamp(cam.pitch, 0.3, 1.35);
+  cam.dist = clamp(cam.dist, 10, 95); cam.pitch = clamp(cam.pitch, 0.3, 1.35);
   const cp = Math.cos(cam.pitch);
   camera.position.set(cam.tx + Math.sin(cam.yaw) * cp * cam.dist, Math.sin(cam.pitch) * cam.dist, cam.tz + Math.cos(cam.yaw) * cp * cam.dist);
   camera.lookAt(cam.tx, 0, cam.tz);
@@ -2603,7 +2736,7 @@ function onCard(it) {
   if (it.kindOf === 'b') {
     if (G.age < d.age) return toast(`${d.name} unlocks in the ${AGES[d.age].name}`, true);
     G.build = G.build === it.id ? null : it.id; G.sel = null; G.selU = []; G.cmd = null; sfx('click');
-    if (G.build) toast(d.wall ? `${d.name}: click or drag to build` : `${d.name}: click the ground to build`);
+    if (G.build) toast(d.wall || d.plant ? `${d.name}: click or drag to place` : `${d.name}: click the ground to build`);
   } else if (it.kindOf === 'u') { trainUnit(it.id); }
   else if (it.id === 'smith') upgradeSmith();
   else researchTech(it.id);
@@ -2913,7 +3046,7 @@ canvasEl.addEventListener('pointerdown', e => {
     panVel.x = panVel.y = 0;
     painted = false;
     const def = G.build && BDEF[G.build];
-    if (def && def.wall && e.button === 0 && !G.over) { painting = true; lastPaint = ''; paint(e.clientX, e.clientY); }
+    if (def && (def.wall || def.plant) && e.button === 0 && !G.over) { painting = true; lastPaint = ''; paint(e.clientX, e.clientY); }
     else if (e.shiftKey && e.button === 0 && !G.build && !G.over) { marq = { x0: e.clientX, y0: e.clientY }; }
   } else { painting = false; marq = null; marqEl.style.display = 'none'; if (down) down.moved = true; pinch = null; }
   updateGhost(e.clientX, e.clientY);
@@ -3141,6 +3274,8 @@ function frame(now) {
   for (const b of buildings) {
     const fl = b.group.userData.flags;
     if (fl) for (let i = 0; i < fl.length; i++) fl[i].rotation.y = Math.sin(now / 260 + b.id + i) * 0.35;
+    const sp = b.group.userData.spin;
+    if (sp) for (let i = 0; i < sp.length; i++) { sp[i].rotation.y = now / 120; sp[i].position.y = 0.9 + Math.sin(now / 500 + b.id) * 0.12; }
   }
   if (G.sel && !G.sel.dead && G.sel.group) { /* selection ring */
     selRing.visible = true; selRing.position.set(G.sel.x, 0.08, G.sel.z); selRing.scale.setScalar(G.sel.def.size === 3 ? 2.4 : G.sel.def.size === 2 ? 1.5 : 0.8);
@@ -3309,7 +3444,7 @@ function loadFrom(slot) {
   applySnapshot(s); sfx('level'); toast(`Loaded ${SAVE_SLOTS.find(x => x[0] === slot)[1]}`);
 }
 let gameStarted = false;
-let autoT = 20;
+let autoT = 15;
 function autosaveTick(dt) {
   if (!gameStarted || G.paused || G.over) return;
   autoT -= dt;
@@ -3401,8 +3536,8 @@ function refreshContinue() {
   $('introVer').textContent = `Version ${GAME_VERSION}`;
   $('contBtn').addEventListener('click', () => { const s = contSlot && storeGet(contSlot); if (!s) return; audioInit(); gameStarted = true; applySnapshot(s); sfx('level'); });
   refreshContinue();
-  $('startBtn').addEventListener('click', () => { gameStarted = true; autoT = 20; });
-  $('againBtn').addEventListener('click', () => { gameStarted = true; autoT = 20; });
+  $('startBtn').addEventListener('click', () => { gameStarted = true; autoT = 15; });
+  $('againBtn').addEventListener('click', () => { gameStarted = true; autoT = 15; });
 })();
 
 /* ===================== scenery and ambient effects =====================
@@ -3537,17 +3672,45 @@ function updateWater(now) {
     for (let i = 0; i < MAP; i++) for (let j = 0; j < MAP; j++, q++) if (kind[i][j] === 'p') { FX.waterIdx.push(q); terrain.getColorAt(q, fxC); FX.waterBase.push(fxC.clone()); }
   }
   if (!FX.waterIdx.length) return;
-  const t = now * 0.0016;
+  const t = now * 0.0011;
   for (let k = 0; k < FX.waterIdx.length; k++) {
     const q = FX.waterIdx[k], i = (q / MAP) | 0, j = q % MAP;
-    const f = 1 + 0.07 * Math.sin(t + i * 0.9 + j * 0.6) + 0.04 * Math.sin(t * 1.7 - i * 0.5 + j * 1.3);
+    const f = 1 + 0.045 * Math.sin(t + i * 0.7 + j * 0.5) + 0.025 * Math.sin(t * 1.6 - i * 0.4 + j * 0.9);
     fxC.copy(FX.waterBase[k]).multiplyScalar(f * (1 - ENV.sw[3] * 0.6) + ENV.sw[3] * 0.6);
     terrain.setColorAt(q, fxC);
   }
   terrain.instanceColor.needsUpdate = true;
 }
 
+/* Skyward Age traffic: a few airships and a courier drone cruise above the town once the clan reaches the clouds */
+const SHIPS = [];
+function makeAirship(k) {
+  const g = new THREE.Group();
+  if (k % 3 === 2) {   // courier drone
+    box(g, -0.18, 0, -0.18, 0.36, 0.14, 0.36, 0xdfe6f0); box(g, -0.42, 0.14, -0.03, 0.84, 0.03, 0.06, 0x3b4a5a); box(g, -0.03, 0.14, -0.42, 0.06, 0.03, 0.84, 0x3b4a5a);
+    box(g, -0.06, -0.1, -0.06, 0.12, 0.1, 0.12, 0x5cf0ff, LAMP);
+  } else {
+    box(g, -0.5, 0, -1.2, 1.0, 0.5, 2.4, k % 3 ? 0xdfe6f0 : 0x2cc4d8); box(g, -0.36, 0.1, -1.35, 0.72, 0.3, 0.2, 0x3b4a5a);
+    box(g, -0.22, -0.3, -0.5, 0.44, 0.3, 1.0, 0x3b4a5a); box(g, -0.2, -0.26, -0.45, 0.4, 0.08, 0.9, 0xbfe3f2, LAMP);
+    box(g, -0.6, 0.15, 0.9, 0.1, 0.35, 0.4, 0x7fe0ff, LAMP); box(g, 0.5, 0.15, 0.9, 0.1, 0.35, 0.4, 0x7fe0ff, LAMP);
+  }
+  g.traverse(o => { if (o.isMesh) { o.castShadow = true; } });
+  scene.add(g);
+  return { g, r: 9 + k * 4.5, h: 6 + k * 1.2, ph: k * 2.1, sp: (k % 3 === 2 ? 0.5 : 0.17) * (k % 2 ? 1 : -1) };
+}
+function updateAirships(now) {
+  const want = G.age >= 6 ? 3 : 0;
+  while (SHIPS.length < want) SHIPS.push(makeAirship(SHIPS.length));
+  while (SHIPS.length > want) scene.remove(SHIPS.pop().g);
+  const t = now * 0.001;
+  for (const s of SHIPS) {
+    const a = s.ph + t * s.sp, x = KX + Math.cos(a) * s.r, z = KZ + Math.sin(a) * s.r;
+    s.g.position.set(x, s.h + Math.sin(t * 0.7 + s.ph) * 0.3, z);
+    s.g.rotation.y = -a + (s.sp > 0 ? 0 : Math.PI);
+  }
+}
 function updateFx(dt, now) {
+  updateAirships(now);
   if (terrain && FX.terrainRef !== terrain) { buildDeco(); seedFireflies(); }
   if (!tuftMesh) return;
   FX.decoT -= dt;
@@ -3558,6 +3721,5 @@ function updateFx(dt, now) {
   tuftMat.color.copy(fxC); pebbleMat.color.copy(fxC);
   updateFireflies(now);
   if (!G.paused) updateSmoke(dt);
-  FX.waterT -= dt;
-  if (FX.waterT <= 0) { FX.waterT = 0.1; updateWater(now); }
+  updateWater(now);   // every frame: a stepped update reads as flicker
 }

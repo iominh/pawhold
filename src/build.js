@@ -12,6 +12,8 @@ const build = crypto.createHash('sha1').update(body + src('head.html')).digest('
 const game = `const GAME_VERSION = '${version}', GAME_BUILD = '${build}';\n` + body;
 const head = src('head.html');
 const isPwa = process.argv[2] === 'pwa';
+module.exports = { game, head, version, build };
+if (require.main !== module) return;
 if (!isPwa) fs.writeFileSync(path.join(here, 'game.js'), game);
 const cut = head.indexOf('<div id="stage">');
 const headPart = head.slice(0, cut), bodyPart = head.slice(cut);

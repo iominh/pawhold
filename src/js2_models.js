@@ -182,11 +182,23 @@ function addGear(g, role, sp) {
     box(head, -hw / 2 - 0.03, hw - 0.02, -0.03, hw + 0.06, 0.06, hw * 0.9 + 0.06, 0x1f8a70);
     box(head, -0.05, hw + 0.04, 0.02, 0.1, 0.16, 0.1, 0x1f8a70);
     box(g, S.bw / 2 + 0.06, S.ly, 0.05, 0.04, 0.8, 0.04, 0x7b5232); box(g, S.bw / 2 + 0.03, S.ly + 0.8, 0.02, 0.1, 0.1, 0.1, 0xe0b24a, LAMP);
+  } else if (role === 'skiff') {   // the fox sits in a hovering skiff: hull below, canopy ring, thruster glow
+    for (const p of g.userData.legs) p.visible = false;
+    box(g, -S.bw / 2 - 0.12, S.ly - 0.3, -S.bd / 2 - 0.16, S.bw + 0.24, 0.16, S.bd + 0.36, 0xdfe6f0);
+    box(g, -S.bw / 2 - 0.08, S.ly - 0.16, -S.bd / 2 - 0.1, S.bw + 0.16, 0.08, S.bd + 0.2, 0x2cc4d8);
+    box(g, -0.08, S.ly - 0.42, -S.bd / 2 - 0.05, 0.16, 0.12, 0.16, 0x7fe0ff, LAMP); box(g, -0.08, S.ly - 0.42, S.bd / 2 - 0.1, 0.16, 0.12, 0.16, 0x7fe0ff, LAMP);
+    box(g, S.bw / 2 + 0.05, S.ly + 0.1, -0.1, 0.05, 0.05, 0.6, 0x3b4a5a); box(g, S.bw / 2 + 0.035, S.ly + 0.085, 0.45, 0.08, 0.08, 0.1, 0x5cf0ff, LAMP);
+    box(head, -hw / 2 - 0.02, hw - 0.02, -0.02, hw + 0.04, 0.08, hw * 0.9 + 0.04, 0xdfe6f0);
   } else if (role === 'worker') {
     box(head, -hw / 2 - 0.04, hw - 0.02, -0.04, hw + 0.08, 0.04, hw * 0.9 + 0.08, 0xe2c36b);
     const c = sp === 'panda' ? box(g, -0.1, S.ly + 0.06, -S.bd / 2 - 0.14, 0.2, 0.2, 0.14, 0xffffff) : box(g, -0.1, S.ly + S.bh, -0.12, 0.2, 0.16, 0.2, 0xffffff);
     c.visible = false;
     g.userData.carry = c;
+    // a tool in the right paw, shown only while working: axe head one side, pick the other, swapped by what is being gathered
+    const tool = new THREE.Group(); tool.position.set(S.bw / 2 + 0.06, S.ly + S.bh * 0.5, S.bd / 2 - 0.05);
+    box(tool, -0.02, -0.05, -0.02, 0.04, 0.42, 0.04, 0x7b5232);
+    const axe = box(tool, -0.02, 0.3, 0.02, 0.1, 0.12, 0.04, 0xcfd4d8), pick = box(tool, -0.12, 0.33, -0.015, 0.24, 0.04, 0.03, 0x8a919a);
+    tool.visible = false; g.add(tool); g.userData.tool = tool; g.userData.axe = axe; g.userData.pick = pick;
   }
 }
 
@@ -229,6 +241,16 @@ function buildModel(b) {
       box(g, -0.08, 0.3, 0.36, 0.16, 0.1, 0.02, 0xffffff);
       box(g, 0.2, 0.26, 0.34, 0.1, 0.1, 0.03, 0xbfe3f2, LAMP);
       box(g, -0.3, 0.08, 0.2, 0.1, 0.12, 0.1, 0x5fa05a); box(g, -0.28, 0.2, 0.22, 0.06, 0.06, 0.06, 0xf2c14e);
+      break;
+    case 'sapling':
+      box(g, -0.3, 0, -0.3, 0.6, 0.05, 0.6, 0x5a4030);
+      box(g, -0.03, 0.05, -0.03, 0.06, 0.35, 0.06, 0x6b4a2f); box(g, -0.12, 0.3, -0.12, 0.24, 0.16, 0.24, 0x6fcf57);
+      [[-0.22, -0.22], [0.14, -0.22], [-0.22, 0.14], [0.14, 0.14]].forEach(([x, z]) => box(g, x, 0.05, z, 0.08, 0.1, 0.08, 0x7fd45f));
+      break;
+    case 'berrybed':
+      box(g, -0.32, 0, -0.32, 0.64, 0.06, 0.64, 0x6b4a2f);
+      for (let k = 0; k < 3; k++) for (let m = 0; m < 3; m++) box(g, -0.24 + k * 0.18, 0.06, -0.24 + m * 0.18, 0.1, 0.1, 0.1, (k + m) % 2 ? 0x5aae4a : 0x4c9a3e);
+      box(g, -0.05, 0.14, -0.05, 0.08, 0.08, 0.08, 0xd9344a);
       break;
     case 'farm':
       box(g, -0.45, 0, -0.45, 0.9, 0.06, 0.9, 0x6b4a2f);
@@ -296,7 +318,8 @@ function buildModel(b) {
           if (nb.s) box(g, -0.04, 0.75, 0.32, 0.08, 0.12, 0.12, c2); if (nb.n) box(g, -0.04, 0.75, -0.44, 0.08, 0.12, 0.12, c2);
         }
         if (A >= 3) box(g, -0.31, 0.5, -0.31, 0.62, 0.06, 0.62, P.trim);   // gold band
-        if (A >= 4) box(g, -0.3, 0.97, -0.3, 0.6, 0.08, 0.6, A >= 5 ? 0xb87333 : 0xe9e3d7);   // marble cap, then copper
+        if (A >= 4) box(g, -0.3, 0.97, -0.3, 0.6, 0.08, 0.6, A >= 6 ? 0x7fe0ff : A >= 5 ? 0xb87333 : 0xe9e3d7, A >= 6 ? LAMP : undefined);   // marble cap, copper, then a glowing barrier rail
+        if (A >= 6) { if (nb.e) box(g, 0.26, 0.5, -0.03, 0.24, 0.06, 0.06, 0x7fe0ff, LAMP); if (nb.w) box(g, -0.5, 0.5, -0.03, 0.24, 0.06, 0.06, 0x7fe0ff, LAMP); if (nb.s) box(g, -0.03, 0.5, 0.26, 0.06, 0.06, 0.24, 0x7fe0ff, LAMP); if (nb.n) box(g, -0.03, 0.5, -0.5, 0.06, 0.06, 0.24, 0x7fe0ff, LAMP); }
       }
       break;
     }
@@ -337,6 +360,43 @@ function buildModel(b) {
       box(tur, -0.05, 0.1, -0.3, 0.1, 0.08, 0.7, 0x5a3a22);
       box(tur, -0.03, 0.16, 0.05, 0.06, 0.04, 0.5, 0xdfe4e8);
       g.add(tur); b.turret = tur;
+      break;
+    }
+    case 'skyscraper': {
+      const h1 = hash(b.i * 3, b.j * 5);
+      box(g, -0.9, 0, -0.9, 1.8, 0.2, 1.8, 0x8a929c);
+      const tiers = [[0.8, 1.4], [0.68, 1.2], [0.56, 1.0], [0.44, 0.6 + h1 * 0.5]];
+      let y = 0.2;
+      for (const [s, hh] of tiers) {
+        box(g, -s, y, -s, s * 2, hh, s * 2, 0xdfe6f0);
+        for (let fl = 0; fl < Math.floor(hh / 0.3); fl++) { const fy = y + 0.08 + fl * 0.3; box(g, -s - 0.01, fy, -s + 0.1, 0.02, 0.14, s * 2 - 0.2, 0xbfe3f2, LAMP); box(g, s - 0.01, fy, -s + 0.1, 0.02, 0.14, s * 2 - 0.2, 0xbfe3f2, LAMP); box(g, -s + 0.1, fy, s - 0.01, s * 2 - 0.2, 0.14, 0.02, 0xbfe3f2, LAMP); box(g, -s + 0.1, fy, -s - 0.01, s * 2 - 0.2, 0.14, 0.02, 0xbfe3f2, LAMP); }
+        box(g, -s - 0.03, y + hh - 0.06, -s - 0.03, s * 2 + 0.06, 0.06, s * 2 + 0.06, 0x2cc4d8);
+        y += hh;
+      }
+      box(g, -0.03, y, -0.03, 0.06, 0.6, 0.06, 0x3b4a5a); box(g, -0.05, y + 0.6, -0.05, 0.1, 0.1, 0.1, 0xff4a6a, LAMP);
+      break;
+    }
+    case 'laser': {
+      box(g, -0.3, 0, -0.3, 0.6, 0.12, 0.6, 0x8a929c);
+      box(g, -0.14, 0.12, -0.14, 0.28, 1.3, 0.28, 0xdfe6f0);
+      [0.4, 0.8].forEach(yy => box(g, -0.17, yy, -0.17, 0.34, 0.06, 0.34, 0x2cc4d8));
+      const tur = new THREE.Group();
+      tur.position.set(0, 1.42, 0);
+      box(tur, -0.2, 0, -0.2, 0.4, 0.14, 0.4, 0x3b4a5a);
+      box(tur, -0.1, 0.12, -0.1, 0.2, 0.2, 0.2, 0xdfe6f0);
+      box(tur, -0.06, 0.16, 0.08, 0.12, 0.12, 0.45, 0x3b4a5a); box(tur, -0.05, 0.17, 0.5, 0.1, 0.1, 0.06, 0x5cf0ff, LAMP);
+      g.add(tur); b.turret = tur;
+      break;
+    }
+    case 'skyport': {
+      box(g, -0.95, 0, -0.95, 1.9, 0.14, 1.9, 0x8a929c);
+      box(g, -0.8, 0.14, -0.8, 1.6, 0.04, 1.6, 0x3b4a5a);
+      [[-0.7, -0.7], [0.5, -0.7], [-0.7, 0.5], [0.5, 0.5]].forEach(([x, z]) => box(g, x, 0.18, z, 0.2, 0.06, 0.2, 0x7fe0ff, LAMP));
+      box(g, -0.6, 0.17, -0.04, 1.2, 0.03, 0.08, 0x7fe0ff, LAMP); box(g, -0.04, 0.17, -0.6, 0.08, 0.03, 1.2, 0x7fe0ff, LAMP);
+      box(g, 0.55, 0.18, -0.9, 0.35, 0.9, 0.35, 0xdfe6f0); box(g, 0.6, 1.08, -0.85, 0.25, 0.2, 0.25, 0x2cc4d8);
+      const dr = new THREE.Group(); dr.position.set(-0.3, 0.9, 0.2);
+      box(dr, -0.12, 0, -0.12, 0.24, 0.12, 0.24, 0xdfe6f0); box(dr, -0.3, 0.12, -0.02, 0.6, 0.03, 0.04, 0x3b4a5a); box(dr, -0.02, 0.12, -0.3, 0.04, 0.03, 0.6, 0x3b4a5a); box(dr, -0.05, -0.08, -0.05, 0.1, 0.08, 0.1, 0x5cf0ff, LAMP);
+      g.add(dr); (g.userData.spin = g.userData.spin || []).push(dr);
       break;
     }
     case 'bombard': {
@@ -445,6 +505,8 @@ function iso(cx, cy, w, h, top, side) {
 const ICONS = {
   house: [[24, 24, 13, 12, 0xd2c2a6, 0xd2c2a6], [24, 17, 16, 5, 0xa5513f, 0xa5513f]],
   infirmary: [[24, 27, 13, 10, 0xf1ebdc, 0xf1ebdc], [24, 19, 15, 5, 0x5fa05a, 0x5fa05a], [24, 26, 3, 4, 0xd9442f, 0xd9442f]],
+  sapling: [[24, 32, 14, 3, 0x5a4030, 0x4a3426], [24, 24, 3, 9, 0x6b4a2f, 0x4a3426], [24, 16, 9, 6, 0x6fcf57, 0x4fb243]],
+  berrybed: [[24, 30, 15, 4, 0x6b4a2f, 0x4a3426], [20, 24, 5, 4, 0x5aae4a, 0x3f8a35], [28, 24, 5, 4, 0x5aae4a, 0x3f8a35], [24, 20, 4, 4, 0xd9344a, 0xb52a3c]],
   farm: [[24, 28, 17, 3, 0x6fb04a, 0x6b4a2f], [16, 26, 4, 3, 0xd9344a, 0xd9344a], [30, 28, 4, 3, 0xd9344a, 0xd9344a]],
   camp: [[24, 28, 15, 5, 0x9a6a3c, 0x7a5c3a], [24, 18, 16, 4, 0xd8b85c, 0xb9964a]],
   quarry: [[19, 30, 10, 8, 0xa9afb5, 0x8a9096], [29, 25, 9, 7, 0xb6bcc2, 0x7d848c]],
@@ -456,6 +518,9 @@ const ICONS = {
   tower: [[24, 30, 8, 16, 0xb9bfc5, 0x9aa1a8], [24, 16, 11, 3, 0xc6ccd1, 0xc6ccd1]],
   ballista: [[24, 30, 8, 16, 0xb9bfc5, 0x9aa1a8], [24, 16, 11, 3, 0xc6ccd1, 0xc6ccd1], [24, 12, 6, 2, 0x7b5232, 0x5a3a22]],
   cannon: [[24, 31, 10, 13, 0x6c737a, 0x6c737a], [24, 18, 12, 3, 0xe3b44e, 0xb98c2a], [24, 13, 4, 5, 0x25282c, 0x25282c]],
+  skyscraper: [[24, 34, 14, 6, 0xdfe6f0, 0xb9c3cf], [24, 24, 12, 10, 0xdfe6f0, 0xb9c3cf], [24, 14, 9, 10, 0xdfe6f0, 0xb9c3cf], [24, 10, 2, 5, 0x2cc4d8, 0x2cc4d8]],
+  laser: [[24, 32, 10, 5, 0x8a929c, 0x6f777f], [24, 18, 5, 16, 0xdfe6f0, 0xb9c3cf], [24, 12, 8, 5, 0x3b4a5a, 0x2b3744], [24, 9, 4, 3, 0x5cf0ff, 0x5cf0ff]],
+  skyport: [[24, 30, 20, 5, 0x3b4a5a, 0x2b3744], [24, 28, 10, 2, 0x7fe0ff, 0x7fe0ff], [32, 20, 5, 10, 0xdfe6f0, 0xb9c3cf], [18, 18, 6, 3, 0xdfe6f0, 0xb9c3cf]],
   bombard: [[24, 32, 13, 10, 0xe9e3d7, 0xcfc8ba], [24, 22, 15, 3, 0xd4af37, 0xb8922a], [24, 16, 8, 7, 0x8c6d3a, 0x6b5230]],
   turret: [[24, 31, 9, 15, 0x707b87, 0x5a636e], [24, 16, 11, 3, 0xe0b24a, 0xb8922a], [24, 11, 7, 6, 0xb87333, 0x8f5a28]]
 };

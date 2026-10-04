@@ -130,17 +130,45 @@ function updateWater(now) {
     for (let i = 0; i < MAP; i++) for (let j = 0; j < MAP; j++, q++) if (kind[i][j] === 'p') { FX.waterIdx.push(q); terrain.getColorAt(q, fxC); FX.waterBase.push(fxC.clone()); }
   }
   if (!FX.waterIdx.length) return;
-  const t = now * 0.0016;
+  const t = now * 0.0011;
   for (let k = 0; k < FX.waterIdx.length; k++) {
     const q = FX.waterIdx[k], i = (q / MAP) | 0, j = q % MAP;
-    const f = 1 + 0.07 * Math.sin(t + i * 0.9 + j * 0.6) + 0.04 * Math.sin(t * 1.7 - i * 0.5 + j * 1.3);
+    const f = 1 + 0.045 * Math.sin(t + i * 0.7 + j * 0.5) + 0.025 * Math.sin(t * 1.6 - i * 0.4 + j * 0.9);
     fxC.copy(FX.waterBase[k]).multiplyScalar(f * (1 - ENV.sw[3] * 0.6) + ENV.sw[3] * 0.6);
     terrain.setColorAt(q, fxC);
   }
   terrain.instanceColor.needsUpdate = true;
 }
 
+/* Skyward Age traffic: a few airships and a courier drone cruise above the town once the clan reaches the clouds */
+const SHIPS = [];
+function makeAirship(k) {
+  const g = new THREE.Group();
+  if (k % 3 === 2) {   // courier drone
+    box(g, -0.18, 0, -0.18, 0.36, 0.14, 0.36, 0xdfe6f0); box(g, -0.42, 0.14, -0.03, 0.84, 0.03, 0.06, 0x3b4a5a); box(g, -0.03, 0.14, -0.42, 0.06, 0.03, 0.84, 0x3b4a5a);
+    box(g, -0.06, -0.1, -0.06, 0.12, 0.1, 0.12, 0x5cf0ff, LAMP);
+  } else {
+    box(g, -0.5, 0, -1.2, 1.0, 0.5, 2.4, k % 3 ? 0xdfe6f0 : 0x2cc4d8); box(g, -0.36, 0.1, -1.35, 0.72, 0.3, 0.2, 0x3b4a5a);
+    box(g, -0.22, -0.3, -0.5, 0.44, 0.3, 1.0, 0x3b4a5a); box(g, -0.2, -0.26, -0.45, 0.4, 0.08, 0.9, 0xbfe3f2, LAMP);
+    box(g, -0.6, 0.15, 0.9, 0.1, 0.35, 0.4, 0x7fe0ff, LAMP); box(g, 0.5, 0.15, 0.9, 0.1, 0.35, 0.4, 0x7fe0ff, LAMP);
+  }
+  g.traverse(o => { if (o.isMesh) { o.castShadow = true; } });
+  scene.add(g);
+  return { g, r: 9 + k * 4.5, h: 6 + k * 1.2, ph: k * 2.1, sp: (k % 3 === 2 ? 0.5 : 0.17) * (k % 2 ? 1 : -1) };
+}
+function updateAirships(now) {
+  const want = G.age >= 6 ? 3 : 0;
+  while (SHIPS.length < want) SHIPS.push(makeAirship(SHIPS.length));
+  while (SHIPS.length > want) scene.remove(SHIPS.pop().g);
+  const t = now * 0.001;
+  for (const s of SHIPS) {
+    const a = s.ph + t * s.sp, x = KX + Math.cos(a) * s.r, z = KZ + Math.sin(a) * s.r;
+    s.g.position.set(x, s.h + Math.sin(t * 0.7 + s.ph) * 0.3, z);
+    s.g.rotation.y = -a + (s.sp > 0 ? 0 : Math.PI);
+  }
+}
 function updateFx(dt, now) {
+  updateAirships(now);
   if (terrain && FX.terrainRef !== terrain) { buildDeco(); seedFireflies(); }
   if (!tuftMesh) return;
   FX.decoT -= dt;
@@ -151,6 +179,5 @@ function updateFx(dt, now) {
   tuftMat.color.copy(fxC); pebbleMat.color.copy(fxC);
   updateFireflies(now);
   if (!G.paused) updateSmoke(dt);
-  FX.waterT -= dt;
-  if (FX.waterT <= 0) { FX.waterT = 0.1; updateWater(now); }
+  updateWater(now);   // every frame: a stepped update reads as flicker
 }

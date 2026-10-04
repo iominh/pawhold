@@ -1,11 +1,15 @@
 {
   "name": "pawhold",
-  "version": "1.8.1",
+  "version": "1.9.0",
   "description": "A voxel medieval city-builder where animals raise a town and defend it through the ages.",
   "private": true,
   "scripts": {
     "build:pwa": "node src/build.js pwa .",
-    "serve": "python3 -m http.server 8080"
+    "serve": "python3 -m http.server 8080",
+    "test": "node tests/run.js"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
 }

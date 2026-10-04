@@ -185,7 +185,7 @@ function updateParticles(dt, t, cx, cz) {
 /* ---- lightning ---- */
 const bolts = [];
 function strike() {
-  const x = KX + rnd(-16, 16), z = KZ + rnd(-16, 16), g = new THREE.Group();
+  const x = (typeof cam !== 'undefined' ? cam.tx : KX) + rnd(-16, 16), z = (typeof cam !== 'undefined' ? cam.tz : KZ) + rnd(-16, 16), g = new THREE.Group();
   let px = 0;
   for (let k = 0; k < 8; k++) {
     const y = 30 - k * 3.7, nx = px + rnd(-0.9, 0.9);
@@ -290,7 +290,8 @@ function updateEnv(dt, now) {
   // lights: the sun arcs east to west, the moon takes over below the horizon
   const dim = 1 - 0.5 * w.cloud;
   const px = sunUp ? ax : -ax, py = sunUp ? ay : -ay;
-  sun.position.set(KX + px * 46, Math.max(11, py * 46), KZ + (sunUp ? 18 : 14));
+  const fx = typeof cam !== 'undefined' ? cam.tx : KX, fz = typeof cam !== 'undefined' ? cam.tz : KZ;
+  sun.position.set(fx + px * 46, Math.max(11, py * 46), fz + (sunUp ? 18 : 14)); sun.target.position.set(fx, 0, fz); sun.target.updateMatrixWorld();
   if (sunUp) C_SUN.setHex(AGES[G.age].sun).lerp(C_DAWN, tw * 0.8); else C_SUN.copy(C_MOON);
   sun.color.copy(C_SUN);
   sun.intensity = (sunUp ? AGES[G.age].sunI * dim * sstep(-0.02, 0.3, ay) : 0.34 * dim * sstep(0.02, 0.3, -ay)) + ENV.flash * 0.6;
@@ -300,7 +301,7 @@ function updateEnv(dt, now) {
 
   // sun and moon discs, stars
   sunMesh.visible = w.cloud < 0.85;
-  sunMesh.position.set(KX + (sun.position.x - KX) * 2.2, sun.position.y * 2.2, KZ + (sun.position.z - KZ) * 2.2);
+  sunMesh.position.set(fx + (sun.position.x - fx) * 2.2, sun.position.y * 2.2, fz + (sun.position.z - fz) * 2.2);
   sunMesh.scale.setScalar(lerpN(7, 5, n) * (1 + tw * 0.35));
   if (sunUp) sunMesh.material.color.setHex(0xfff2b0).lerp(cB.setHex(0xff7a30), tw * 0.85); else sunMesh.material.color.setHex(0xe8eeff);
   stars.material.opacity = n * (1 - w.cloud) * 0.9;
