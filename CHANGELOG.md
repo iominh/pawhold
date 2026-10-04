@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.0
+- Two new ages after Gunpowder: the Imperial Age (marble and crimson) and the Clockwork Age (iron, copper and brass). Walls, the Hall and every building take on the new look, and walls reach 1050 and 1400 hp.
+- New defenses: Bombard Tower (Imperial, 115 area damage at 11 tiles, slow) and Clockwork Turret (Clockwork, a shot every 0.4 s at 8 tiles).
+- New defenders: Elk Lancer (Imperial, fast shock cavalry; level 3 Stampede charges and shoves raiders) and Owl Sage (Clockwork, long-range bolts; level 3 Hoot of Courage heals defenders nearby by 30%).
+- Raids now run to 25. Dire Wolves join from raid 9, Trolls (1500 hp siege giants) from raid 14 and in every boss raid from 20. A boss every fifth raid.
+
 ## 1.7.2
 - Freeze guard: any animal that wants to be somewhere but has not moved for 6 seconds is reset on the spot (job released, path and bans cleared, nudged to a free tile) with a small puff, whatever the cause. Each reset is logged.
 - Diagnostics in the Menu: version, frame rate, what every animal is doing, how many freeze resets happened and why, with a Copy button to send to the developer.

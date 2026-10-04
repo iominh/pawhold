@@ -283,7 +283,9 @@ const ABIL = {
   archer: { name: 'Volley', cd: 18, desc: 'Fires at up to 4 raiders at once for 1.4x damage.' },
   guard: { name: 'Bamboo Guard', cd: 22, desc: 'Takes half damage for 6s and draws nearby raiders.' },
   knight: { name: 'Cleave', cd: 16, desc: 'Strikes every raider within 1.8 tiles for 2x damage.' },
-  musket: { name: 'Aimed Shot', cd: 18, desc: 'One shot for 4x damage.' }
+  musket: { name: 'Aimed Shot', cd: 18, desc: 'One shot for 4x damage.' },
+  lancer: { name: 'Stampede', cd: 20, desc: 'Charges 3 tiles ahead, hitting raiders in the way for 1.6x damage and shoving them aside.' },
+  sage: { name: 'Hoot of Courage', cd: 24, desc: 'Every defender within 4 tiles heals 30% of its health.' }
 };
 function applyStats(u) {
   const d = u.def, L = u.lvl - 1;
@@ -347,6 +349,17 @@ function useAbility(u) {
   } else if (u.role === 'knight') {
     const foes = enemies.filter(e => !e.dead && dist2(u, e) <= 1.8);
     if (foes.length) { foes.forEach(e => hurt(e, dmg * 2, u)); puff(u.x, 0.5, u.z, 0xffffff, 12, 2.4, 0.4, 0.12); used = true; }
+  } else if (u.role === 'lancer') {   // Stampede: charge 4 tiles forward, hitting and shoving every raider on the way
+    const fx = Math.sin(u.face), fz = Math.cos(u.face);
+    const foes = enemies.filter(e => !e.dead && dist2(u, e) <= 4.5 && ((e.x - u.x) * fx + (e.z - u.z) * fz) > 0);
+    if (foes.length) {
+      foes.forEach(e => { hurt(e, dmg * 1.6, u); const sp = validSpot(e.x + fx * 1.6 + rnd(-0.4, 0.4), e.z + fz * 1.6 + rnd(-0.4, 0.4)); e.x = sp[0]; e.z = sp[1]; e.path = null; });
+      const sp = validSpot(u.x + fx * 3, u.z + fz * 3); u.x = sp[0]; u.z = sp[1]; u.path = null;
+      puff(u.x, 0.4, u.z, 0xd9c9a0, 14, 2.6, 0.5, 0.12); used = true;
+    }
+  } else if (u.role === 'sage') {   // Hoot of Courage: heal every defender nearby
+    const allies = units.filter(o => !o.dead && o.role !== 'worker' && dist2(u, o) <= 4 && o.hp < o.maxhp);
+    if (allies.length) { allies.forEach(o => { o.hp = Math.min(o.maxhp, o.hp + o.maxhp * 0.3); dropBar(o); if (o.hp < o.maxhp) showBar(o); puff(o.x, o.y + 0.9, o.z, 0x7be07b, 6, 1.2, 0.6, 0.1); }); used = true; }
   }
   if (used) { u.abCd = ABIL[u.role].cd; u.atk = 0.25; sfx('ability', u.x, u.z); }
   return used;
@@ -992,11 +1005,12 @@ function updateTower(b, dt) {
 
 /* ===================== waves ===================== */
 function planWave(n) {
-  const cost = { wolf: 1, boar: 3, raccoon: 2, badger: 5 };
+  const cost = { wolf: 1, boar: 3, raccoon: 2, badger: 5, direwolf: 4, troll: 13 };
   const opts = ['wolf'];
   if (n >= 2) opts.push('boar'); if (n >= 3) opts.push('raccoon'); if (n >= 4) opts.push('badger');
+  if (n >= 9) opts.push('direwolf', 'direwolf'); if (n >= 14) opts.push('troll'); if (n >= 19) opts.push('troll');
   let left = (3 + n * 2.4) * (DIFF[G.diff] || DIFF.normal).count; const list = [];
-  if (n % 5 === 0) { list.push('chief'); left -= 8; }
+  if (n % 5 === 0) { list.push('chief'); left -= 8; if (n >= 20) { list.push('troll'); left -= 13; } }
   while (left > 0) { const k = pick(opts); list.push(k); left -= cost[k]; }
   return list;
 }
@@ -1094,7 +1108,7 @@ function upgradeSmith() {
   toast(`Weapons sharpened: +${G.smith * 20}% damage`);
 }
 function advanceAge() {
-  if (G.age >= 3) return;
+  if (G.age >= AGES.length - 1) return;
   const c = AGE_COST[G.age + 1];
   if (!afford(c)) return toast('Not enough resources to advance', true);
   pay(c); G.age++;

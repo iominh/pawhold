@@ -1,6 +1,6 @@
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
-const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 15;
+const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 25;
 const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => Math.floor(rnd(a, b + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -11,20 +11,24 @@ const AGES = [
   { name: 'Hamlet', sky: 0xa9d9ee, sun: 0xfff2d8, sunI: 0.85, pal: { wall: 0xb98a56, roof: 0xd8b85c, trim: 0x7b5232, beam: 0x7b5232, flag: 0xe4702b } },
   { name: 'Medieval Town', sky: 0xb7dcee, sun: 0xfff6e6, sunI: 0.9, pal: { wall: 0xd2c2a6, roof: 0xa5513f, trim: 0x6d4a30, beam: 0x6d4a30, flag: 0xc0392b } },
   { name: 'Castle Age', sky: 0xf0d9ae, sun: 0xffe2a8, sunI: 0.85, pal: { wall: 0x9ca3aa, roof: 0x3e6199, trim: 0xcfd4d8, beam: 0x6c737a, flag: 0x2f5fb3 } },
-  { name: 'Gunpowder Age', sky: 0xc9b6dc, sun: 0xffd2b0, sunI: 0.8, pal: { wall: 0xb9bec6, roof: 0x2e3a55, trim: 0xe3b44e, beam: 0x8a919a, flag: 0x7a2fb3 } }
+  { name: 'Gunpowder Age', sky: 0xc9b6dc, sun: 0xffd2b0, sunI: 0.8, pal: { wall: 0xb9bec6, roof: 0x2e3a55, trim: 0xe3b44e, beam: 0x8a919a, flag: 0x7a2fb3 } },
+  { name: 'Imperial Age', sky: 0xe3d3c2, sun: 0xffe6c4, sunI: 0.86, pal: { wall: 0xe9e3d7, roof: 0x8c2d3a, trim: 0xd4af37, beam: 0x7a6a5a, flag: 0xb3122e } },
+  { name: 'Clockwork Age', sky: 0xc4d4de, sun: 0xfff1dc, sunI: 0.9, pal: { wall: 0x707b87, roof: 0xb87333, trim: 0xe0b24a, beam: 0x3f464f, flag: 0x1f8a70 } }
 ];
 const AGE_COST = [null,
   { wood: 150, food: 120 },
   { wood: 260, stone: 200, food: 180, gold: 60 },
-  { wood: 320, stone: 380, food: 300, gold: 260 }];
+  { wood: 320, stone: 380, food: 300, gold: 260 },
+  { wood: 420, stone: 540, food: 420, gold: 440 },
+  { wood: 540, stone: 720, food: 560, gold: 720 }];
 
 const DIFF = {
   gentle: { name: 'Gentle', first: 150, gapHi: 100, gapLo: 60, count: 0.65, mult: 0.8, blurb: 'Fewer, weaker raiders and long breaks between raids. Good for learning the valley.' },
   normal: { name: 'Normal', first: 120, gapHi: 74, gapLo: 48, count: 0.85, mult: 0.95, blurb: 'A fair fight. Raids come about every minute and grow steadily.' },
-  hard:   { name: 'Hard', first: 90, gapHi: 64, gapLo: 40, count: 1.0, mult: 1.0, blurb: 'The original pace: fast raids, full packs, bosses at 5, 10 and 15.' }
+  hard:   { name: 'Hard', first: 90, gapHi: 64, gapLo: 40, count: 1.0, mult: 1.0, blurb: 'The original pace: fast raids, full packs, a boss every fifth raid.' }
 };
-const WALL_COST = [{ wood: 6 }, { stone: 8 }, { stone: 10 }, { stone: 12 }];
-const WALL_HP = [110, 340, 520, 760];
+const WALL_COST = [{ wood: 6 }, { stone: 8 }, { stone: 10 }, { stone: 12 }, { stone: 14, gold: 2 }, { stone: 16, gold: 4 }];
+const WALL_HP = [110, 340, 520, 760, 1050, 1400];
 const BDEF = {
   house:    { name: 'Burrow House', cat: 'town', size: 1, age: 0, cost: { wood: 20 }, hp: 90, time: 3, pop: 3, r: 0.8, blurb: 'Shelter for 3 animals.', role: 'Housing', what: 'Burrows where your animals sleep. Every house raises the population cap by 3.', help: 'More animals means more settlers gathering and more defenders. New settlers only arrive while there is room, and soldiers count against the cap too.', tip: 'If the pop counter is full (say 8/8), nobody new will join. Build houses before you need them.' },
   farm:     { name: 'Berry Farm', cat: 'town', size: 1, age: 0, cost: { wood: 30 }, hp: 70, time: 4, r: 0.8, drop: ['food'], income: { food: 0.55 }, blurb: 'Grows food. Berries are dropped off here.', role: 'Food', what: 'A berry patch tended automatically.', help: 'Makes 0.55 food a second on its own, and settlers drop berries off here. Food feeds new settlers (25 each) and trains soldiers.', tip: 'Build beside berry bushes or close to the Hall to keep carry trips short.' },
@@ -33,10 +37,12 @@ const BDEF = {
   market:   { name: 'Market', cat: 'town', size: 1, age: 1, cost: { wood: 70, stone: 20 }, hp: 120, time: 5, r: 0.8, income: { gold: 0.45 }, blurb: 'Trades goods for a trickle of gold.', role: 'Gold income', what: 'Traders pay a steady stream of gold.', help: 'Earns 0.45 gold a second with no workers needed. Gold trains Guards, Knights and Musketeers, upgrades weapons and buys new ages.', tip: 'Several markets fund a much bigger army. They are safest inside your walls.' },
   barracks: { name: 'Barracks', cat: 'army', size: 2, age: 0, cost: { wood: 80, stone: 10 }, hp: 260, time: 7, r: 1.4, blurb: 'Trains defenders. Needed for the units below.', role: 'Training', what: 'Where defenders are trained. Open the Army tab and pick a unit.', help: 'Without one you cannot train soldiers. Defenders gather on the side raiders are coming from, fight them, and level up from kills. Select them and right-click to give orders.', tip: 'Build it near the Hall. Soldiers also count against housing.' },
   smith:    { name: 'Blacksmith', cat: 'army', size: 1, age: 2, cost: { wood: 60, stone: 60 }, hp: 160, time: 6, r: 0.8, blurb: 'Sharpens every weapon in the valley.', role: 'Weapon upgrades', what: 'A forge that sharpens every weapon in the valley.', help: 'Unlocks the Sharpen Weapons upgrade in the Army tab: +20% damage per level for every defender and tower, up to three levels.', tip: 'Worth it before the boss raids at 5, 10 and 15.' },
-  wall:     { name: 'Wall', cat: 'defense', size: 1, age: 0, wall: true, r: 0.6, time: 1.6, get cost() { return WALL_COST[Math.min(G.age, 3)]; }, get hp() { return WALL_HP[Math.min(G.age, 3)]; }, blurb: 'Drag to draw a line. Upgrades itself as you advance.', role: 'Wall', what: 'A line of defence that grows with your clan: wooden stakes in the Hamlet, stone from the Medieval Town, battlements in the Castle Age and reinforced stone with the Gunpowder Age.', help: 'Raiders must chew through it or walk around. Your own animals walk straight through. Every time you advance an age, every wall you have already built is rebuilt stronger for free, keeping its damage. It funnels raiders to where your towers and archers can reach them.', tip: 'Drag to draw a line. A gap in front of your towers makes a kill zone. New walls cost more stone as the ages go on.' },
+  wall:     { name: 'Wall', cat: 'defense', size: 1, age: 0, wall: true, r: 0.6, time: 1.6, get cost() { return WALL_COST[Math.min(G.age, WALL_COST.length - 1)]; }, get hp() { return WALL_HP[Math.min(G.age, WALL_HP.length - 1)]; }, blurb: 'Drag to draw a line. Upgrades itself as you advance.', role: 'Wall', what: 'A line of defence that grows with your clan: wooden stakes in the Hamlet, stone from the Medieval Town, battlements in the Castle Age, reinforced stone with the Gunpowder Age, marble in the Imperial Age and iron-bound in the Clockwork Age.', help: 'Raiders must chew through it or walk around. Your own animals walk straight through. Every time you advance an age, every wall you have already built is rebuilt stronger for free, keeping its damage. It funnels raiders to where your towers and archers can reach them.', tip: 'Drag to draw a line. A gap in front of your towers makes a kill zone. New walls cost more stone as the ages go on.' },
   tower:    { name: 'Watchtower', cat: 'defense', size: 1, age: 0, cost: { wood: 45, stone: 5 }, hp: 240, time: 5, r: 0.8, range: 7, dmg: 8, rate: 1.1, shot: 'arrow', blurb: 'A fox archer keeps watch.', role: 'Ranged defense', what: 'A fox archer keeps watch from the top.', help: 'Shoots raiders within 7 tiles with no housing or food cost. Damage grows with each age and weapon upgrade.', tip: 'Place a few just behind your walls so raiders stall in range.' },
   ballista: { name: 'Ballista Tower', cat: 'defense', size: 1, age: 2, cost: { wood: 70, stone: 70 }, hp: 360, time: 7, r: 0.8, range: 9.5, dmg: 36, rate: 2.1, shot: 'bolt', blurb: 'Heavy bolts at long range.', role: 'Heavy ranged defense', what: 'A crossbow turret with a long reach.', help: 'Fires heavy bolts out to 9.5 tiles for 36 damage each. Slow, but great against boars, badger rams and the Warlord.', tip: 'Pair with cheaper watchtowers to cover the gaps while it reloads.' },
   cannon:   { name: 'Cannon Tower', cat: 'defense', size: 1, age: 3, cost: { stone: 90, gold: 70 }, hp: 460, time: 8, r: 0.8, range: 8.5, dmg: 58, rate: 3, splash: 1.7, shot: 'ball', blurb: 'Explosive damage in an area.', role: 'Area defense', what: 'A gunpowder cannon that blasts whole packs.', help: 'Cannonballs explode for 58 damage in a wide splash, so raiders bunched at your wall take it all at once.', tip: 'Best right behind a wall where raiders pile up.' },
+  bombard:  { name: 'Bombard Tower', cat: 'defense', size: 1, age: 4, cost: { stone: 170, gold: 150 }, hp: 640, time: 9, r: 0.8, range: 11, dmg: 115, rate: 4.2, splash: 2.4, shot: 'ball', blurb: 'A huge mortar for the biggest packs.', role: 'Siege defense', what: 'A great bronze bombard on a marble base.', help: 'Lobs a massive shell out to 11 tiles for 115 area damage. Slow to reload, but a direct hit on a bunched raid is devastating, and it is the answer to trolls.', tip: 'Place it centrally: its reach covers most of the town.' },
+  turret:   { name: 'Clockwork Turret', cat: 'defense', size: 1, age: 5, cost: { stone: 120, gold: 230 }, hp: 540, time: 8, r: 0.8, range: 8, dmg: 26, rate: 0.42, shot: 'bullet', blurb: 'Rapid-fire brass gun.', role: 'Rapid defense', what: 'A brass turret that fires without pause.', help: 'A shot every 0.4 seconds out to 8 tiles. Shreds dire wolves and anything fast, and never runs out of ammunition.', tip: 'Pair it with a Bombard: the turret handles the fast ones while the bombard breaks the big ones.' },
   infirmary: { name: 'Healing Hut', cat: 'town', size: 1, age: 0, cost: { wood: 55, stone: 10 }, hp: 130, time: 5, r: 0.8, heal: 5, blurb: 'Heals animals and buildings nearby.', role: 'Healing', what: 'A cosy hut with a panda healer inside.', help: 'Animals within 5 tiles heal 3 hp a second and nearby buildings are mended too. Keeps your front line alive between raids.', tip: 'Put it just behind your walls where wounded defenders gather.' },
   keep:     { name: 'Great Hall', cat: 'none', size: 3, age: 0, cost: {}, hp: 1200, time: 1, r: 2.1, drop: ['wood', 'stone', 'food', 'gold'], pop: 5, blurb: 'The heart of the clan.', role: 'Heart of the clan', what: 'Your Great Hall. If it falls, the game is lost.', help: 'Settlers drop all resources off here and new ones arrive from it. It houses 5 animals and heals those standing close. It grows tougher with each age.', tip: 'Defend it above all else. Nothing else is as hard to replace.' }
 };
@@ -45,6 +51,8 @@ const UDEF = {
   archer: { name: 'Fox Archer', sp: 'fox', hp: 34, speed: 2.3, dmg: 6, rate: 1.0, range: 5.5, cost: { food: 30, wood: 25 }, age: 0, shot: 'arrow', blurb: 'Fast and ranged.', role: 'Ranged defender', what: 'A quick fox with a bow.', help: 'Hits from 5.5 tiles away, so keep archers behind guards. At level 3 learns Volley, hitting several raiders at once.', tip: 'Cheap and needs no gold.' },
   guard:  { name: 'Panda Guard', sp: 'panda', hp: 110, speed: 1.8, dmg: 10, rate: 1.0, range: 1.1, cost: { food: 40, gold: 15 }, age: 0, blurb: 'Tough front line.', role: 'Front line', what: 'A sturdy panda with a heavy staff.', help: 'Soaks up damage so archers can shoot in peace. At level 3 learns Bamboo Guard: halves damage taken and draws raiders to it.', tip: 'Put them at the wall gap.' },
   knight: { name: 'Bear Knight', sp: 'bear', hp: 240, speed: 1.9, dmg: 22, rate: 1.1, range: 1.3, cost: { food: 70, gold: 55 }, age: 2, blurb: 'Armoured heavy hitter.', role: 'Heavy hitter', what: 'An armoured bear that hits hard.', help: 'High health and strong attacks, ideal against badger rams and the Warlord. At level 3 learns Cleave, a spinning area strike.', tip: 'Unlocks in the Castle Age.' },
+  lancer: { name: 'Elk Lancer', sp: 'elk', hp: 200, speed: 2.6, dmg: 30, rate: 1.0, range: 1.4, cost: { food: 90, gold: 85 }, age: 4, blurb: 'Fast, hard-hitting cavalry.', role: 'Shock cavalry', what: 'A tall elk with a steel lance.', help: 'Quick and strong, perfect for chasing down raccoon slingers and dire wolves. At level 3 learns Stampede: a charge that knocks back every raider in its path.', tip: 'Unlocks in the Imperial Age.' },
+  sage:   { name: 'Owl Sage', sp: 'owl', hp: 80, speed: 2.3, dmg: 44, rate: 1.6, range: 7.5, cost: { food: 80, gold: 140 }, age: 5, shot: 'bolt', blurb: 'Long-range bolts and a healing song.', role: 'Support caster', what: 'A wise owl with a brass staff.', help: 'Fires bolts from 7.5 tiles. At level 3 learns Hoot of Courage: every defender within 4 tiles heals 30% of its health.', tip: 'Unlocks in the Clockwork Age. Keep it behind the line.' },
   musket: { name: 'Rabbit Musketeer', sp: 'rabbit', hp: 44, speed: 2.2, dmg: 24, rate: 1.9, range: 7, cost: { food: 45, gold: 60 }, age: 3, shot: 'bullet', blurb: 'Powder and long range.', role: 'Long-range damage', what: 'A rabbit with a flintlock.', help: 'Slow but powerful shots from 7 tiles. At level 3 learns Aimed Shot: one huge hit.', tip: 'Unlocks in the Gunpowder Age.' }
 };
 const EDEF = {
@@ -52,6 +60,8 @@ const EDEF = {
   boar:    { name: 'Boar', sp: 'boar', hp: 90, speed: 1.7, dmg: 10, rate: 1.2, range: 1.0, bounty: 6, scale: 1 },
   raccoon: { name: 'Raccoon Slinger', sp: 'raccoon', hp: 34, speed: 2.2, dmg: 6, rate: 1.3, range: 4.2, bounty: 5, shot: 'stone', scale: 1 },
   badger:  { name: 'Badger Ram', sp: 'badger', hp: 170, speed: 1.3, dmg: 26, rate: 1.4, range: 1.1, bounty: 12, siege: true, scale: 1.1 },
+  direwolf: { name: 'Dire Wolf', sp: 'wolf', hp: 150, speed: 2.9, dmg: 15, rate: 0.8, range: 1.1, bounty: 14, scale: 1.35 },
+  troll:   { name: 'Troll', sp: 'troll', hp: 1500, speed: 1.1, dmg: 62, rate: 1.9, range: 1.5, bounty: 120, siege: true, scale: 2.1 },
   chief:   { name: 'Bear Warlord', sp: 'warbear', hp: 700, speed: 1.5, dmg: 30, rate: 1.3, range: 1.6, bounty: 90, scale: 1.7 }
 };
 const TECHS = [

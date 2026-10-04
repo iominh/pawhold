@@ -39,12 +39,15 @@ const SPEC = {
   boar:    { bw: .4, bh: .34, bd: .56, ly: .16, hw: .3, body: 0x5b3a2c, belly: 0x7e5642, leg: 0x2e1c14, sn: { w: .2, h: .12, l: .12, c: 0x8a5e48 }, eye: 0xff4a3a },
   raccoon: { bw: .28, bh: .24, bd: .42, ly: .14, hw: .26, body: 0x8a9098, belly: 0xc9ced2, leg: 0x2f3338, sn: { w: .1, h: .08, l: .1, c: 0xd8dcdf } },
   badger:  { bw: .42, bh: .3, bd: .6, ly: .12, hw: .28, body: 0x3b3b3f, belly: 0x55555a, leg: 0x222226, sn: { w: .1, h: .08, l: .12, c: 0xf0f0ec }, eye: 0xff4a3a },
+  elk:     { bw: .34, bh: .34, bd: .62, ly: .3, hw: .28, body: 0x8a6a4a, belly: 0xb79a78, leg: 0x5a4030, sn: { w: .12, h: .1, l: .16, c: 0x6e5440 } },
+  owl:     { bw: .3, bh: .36, bd: .28, ly: .12, hw: .3, body: 0x8a7458, belly: 0xe8dcc4, leg: 0xd9a24a, sn: { w: .08, h: .07, l: .08, c: 0xf2b134 } },
+  troll:   { bw: .5, bh: .46, bd: .56, ly: .22, hw: .38, body: 0x5e7a5a, belly: 0x8aa082, leg: 0x3e5240, sn: { w: .18, h: .12, l: .12, c: 0x7f9a7a }, eye: 0xffb13a },
   warbear: { bw: .42, bh: .36, bd: .52, ly: .16, hw: .34, body: 0x40302a, belly: 0x5a443a, leg: 0x2a1d18, sn: { w: .16, h: .12, l: .1, c: 0x8a6a50 }, eye: 0xff4a3a }
 };
 
 function makeAnimal(sp) {
   const S = SPEC[sp], g = new THREE.Group(), { bw, bh, bd, ly, hw } = S;
-  const legs = [], arms = [], biped = sp === 'panda';
+  const legs = [], arms = [], biped = sp === 'panda' || sp === 'owl' || sp === 'troll';
   if (biped) {
     // pandas stand and walk upright on two legs, arms swinging
     [1, -1].forEach(s => {
@@ -105,6 +108,22 @@ function makeAnimal(sp) {
         box(g, -bw / 2, ly + 0.04, -bd / 2 - 0.04, bw, bh, 0.05, 0x8e1f1f);
       }
       break;
+    case 'elk':
+      both(s => { box(head, s * (hw / 2 - 0.03) - 0.02, hw, 0.08, 0.04, 0.22, 0.04, 0x5a4030); box(head, s * (hw / 2 + 0.05) - 0.02, hw + 0.14, 0.08, 0.04, 0.12, 0.04, 0x5a4030); box(head, s * (hw / 2 - 0.1) - 0.02, hw + 0.18, 0.08, 0.04, 0.1, 0.04, 0x5a4030); box(head, s * (hw / 2 - 0.05) - 0.04, hw - 0.02, 0.02, 0.08, 0.08, 0.05, S.body); });
+      box(g, -0.03, ly + 0.12, -bd / 2 - 0.08, 0.06, 0.06, 0.1, S.body);
+      break;
+    case 'owl':
+      both(s => box(head, s * (hw / 2 - 0.04) - 0.03, hw - 0.02, 0.02, 0.06, 0.1, 0.05, S.body));
+      box(head, -hw / 2 + 0.02, hw * 0.45, hw * 0.9 - 0.02, 0.1, 0.1, 0.03, 0xf2e6c8); box(head, hw / 2 - 0.12, hw * 0.45, hw * 0.9 - 0.02, 0.1, 0.1, 0.03, 0xf2e6c8);
+      both(s => box(g, s * (bw / 2 + 0.02) - 0.03, ly + 0.04, -bd / 2 + 0.02, 0.06, bh - 0.08, bd - 0.04, 0x6e5a42));
+      box(g, -0.08, ly - 0.02, -bd / 2 - 0.12, 0.16, 0.06, 0.14, S.body);
+      break;
+    case 'troll':
+      both(s => box(head, s * (hw / 2 - 0.06) - 0.04, hw - 0.04, 0.05, 0.08, 0.1, 0.06, S.body));
+      both(s => box(head, s * 0.09 - 0.03, -0.02, hw * 0.9 + 0.02, 0.06, 0.12, 0.06, 0xf1ecd8));
+      box(g, bw / 2 + 0.02, ly + 0.1, -0.2, 0.12, 0.12, 0.7, 0x5a3a22); box(g, bw / 2 - 0.02, ly + 0.08, -0.45, 0.2, 0.2, 0.22, 0x6c737a);
+      box(g, -bw / 2 - 0.02, ly + bh - 0.1, -bd / 2 - 0.02, bw + 0.04, 0.12, bd + 0.04, 0x3e5240);
+      break;
     case 'wolf':
       both(s => box(head, s * (hw / 2 - 0.05) - 0.04, hw, 0.03, 0.08, 0.13, 0.05, S.body));
       box(g, -0.05, ly + 0.12, -bd / 2 - 0.26, 0.1, 0.12, 0.3, 0x666d75);
@@ -155,6 +174,14 @@ function addGear(g, role, sp) {
     box(head, -hw / 2 + 0.02, hw + 0.04, 0.0, hw - 0.04, 0.07, hw * 0.9 - 0.04, 0x2e3a55);
     box(g, S.bw / 2 + 0.02, S.ly + 0.12, -0.1, 0.05, 0.05, 0.7, 0x4a4a4f);
     box(g, S.bw / 2 + 0.02, S.ly + 0.1, -0.2, 0.06, 0.08, 0.2, 0x7b5232);
+  } else if (role === 'lancer') {
+    box(g, -S.bw / 2 - 0.015, S.ly + 0.06, -S.bd / 2 + 0.12, S.bw + 0.03, S.bh * 0.6, S.bd * 0.5, 0xd4af37);
+    box(g, S.bw / 2 + 0.03, S.ly + 0.18, -0.3, 0.04, 0.04, 1.0, 0xdfe4e8); box(g, S.bw / 2 + 0.01, S.ly + 0.16, 0.6, 0.08, 0.08, 0.12, 0xb3122e);
+    box(head, -hw / 2 - 0.02, hw - 0.04, -0.02, hw + 0.04, 0.1, hw * 0.9 + 0.04, 0xaeb6bd);
+  } else if (role === 'sage') {
+    box(head, -hw / 2 - 0.03, hw - 0.02, -0.03, hw + 0.06, 0.06, hw * 0.9 + 0.06, 0x1f8a70);
+    box(head, -0.05, hw + 0.04, 0.02, 0.1, 0.16, 0.1, 0x1f8a70);
+    box(g, S.bw / 2 + 0.06, S.ly, 0.05, 0.04, 0.8, 0.04, 0x7b5232); box(g, S.bw / 2 + 0.03, S.ly + 0.8, 0.02, 0.1, 0.1, 0.1, 0xe0b24a, LAMP);
   } else if (role === 'worker') {
     box(head, -hw / 2 - 0.04, hw - 0.02, -0.04, hw + 0.08, 0.04, hw * 0.9 + 0.08, 0xe2c36b);
     const c = sp === 'panda' ? box(g, -0.1, S.ly + 0.06, -S.bd / 2 - 0.14, 0.2, 0.2, 0.14, 0xffffff) : box(g, -0.1, S.ly + S.bh, -0.12, 0.2, 0.16, 0.2, 0xffffff);
@@ -269,6 +296,7 @@ function buildModel(b) {
           if (nb.s) box(g, -0.04, 0.75, 0.32, 0.08, 0.12, 0.12, c2); if (nb.n) box(g, -0.04, 0.75, -0.44, 0.08, 0.12, 0.12, c2);
         }
         if (A >= 3) box(g, -0.31, 0.5, -0.31, 0.62, 0.06, 0.62, P.trim);   // gold band
+        if (A >= 4) box(g, -0.3, 0.97, -0.3, 0.6, 0.08, 0.6, A >= 5 ? 0xb87333 : 0xe9e3d7);   // marble cap, then copper
       }
       break;
     }
@@ -308,6 +336,35 @@ function buildModel(b) {
       box(tur, -0.45, 0.12, -0.04, 0.9, 0.06, 0.06, 0x7b5232);
       box(tur, -0.05, 0.1, -0.3, 0.1, 0.08, 0.7, 0x5a3a22);
       box(tur, -0.03, 0.16, 0.05, 0.06, 0.04, 0.5, 0xdfe4e8);
+      g.add(tur); b.turret = tur;
+      break;
+    }
+    case 'bombard': {
+      box(g, -0.46, 0, -0.46, 0.92, 0.6, 0.92, 0xe9e3d7);
+      box(g, -0.52, 0.6, -0.52, 1.04, 0.1, 1.04, 0xd4af37);
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z]) => box(g, x * 0.4 - 0.08, 0.7, z * 0.4 - 0.08, 0.16, 0.16, 0.16, 0xe9e3d7));
+      flagAt(g, -0.44, 0.7, -0.44, P.flag);
+      const tur = new THREE.Group();
+      tur.position.set(0, 0.7, 0);
+      box(tur, -0.26, 0, -0.26, 0.52, 0.22, 0.52, 0x5a4a3a);
+      box(tur, -0.17, 0.2, -0.2, 0.34, 0.34, 0.6, 0x8c6d3a);
+      box(tur, -0.2, 0.18, 0.3, 0.4, 0.38, 0.1, 0xd4af37);
+      box(tur, -0.12, 0.26, -0.3, 0.24, 0.24, 0.1, 0x3b3f45);
+      g.add(tur); b.turret = tur;
+      break;
+    }
+    case 'turret': {
+      box(g, -0.34, 0, -0.34, 0.68, 0.95, 0.68, 0x707b87);
+      box(g, -0.4, 0.95, -0.4, 0.8, 0.08, 0.8, 0xe0b24a);
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z]) => box(g, x * 0.3 - 0.06, 0.3 + z * 0.1, z * 0.3 - 0.06, 0.12, 0.3, 0.12, 0xb87333));
+      box(g, -0.06, 0.35, 0.34, 0.12, 0.2, 0.03, 0xffd36b, LAMP);
+      flagAt(g, -0.3, 1.03, -0.3, P.flag);
+      const tur = new THREE.Group();
+      tur.position.set(0, 1.03, 0);
+      box(tur, -0.2, 0, -0.2, 0.4, 0.16, 0.4, 0x3f464f);
+      box(tur, -0.16, 0.14, -0.16, 0.32, 0.26, 0.32, 0xb87333);
+      [-0.08, 0.08].forEach(x => box(tur, x - 0.03, 0.22, 0.1, 0.06, 0.06, 0.5, 0x25282c));
+      box(tur, -0.1, 0.4, -0.1, 0.2, 0.08, 0.2, 0xe0b24a);
       g.add(tur); b.turret = tur;
       break;
     }
@@ -363,14 +420,14 @@ function buildModel(b) {
         }
         box(g, -0.65, 1.0, -0.65, 1.3, 1.0, 1.3, st2);
         roofPyr(g, 0, 2.0, 0, 1.5, P.roof, 5, 0.3);
-        if (A === 3) { box(g, -0.7, 1.95, -0.7, 1.4, 0.06, 1.4, P.trim); box(g, -0.05, 2.6, -0.05, 0.1, 0.5, 0.1, P.trim); }
+        if (A >= 3) { box(g, -0.7, 1.95, -0.7, 1.4, 0.06, 1.4, P.trim); box(g, -0.05, 2.6, -0.05, 0.1, 0.5, 0.1, P.trim); }
         [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z]) => {
           box(g, x * 1.15 - 0.25, 0, z * 1.15 - 0.25, 0.5, 1.5, 0.5, st2);
           roofPyr(g, x * 1.15, 1.5, z * 1.15, 0.66, P.roof, 3, 0.22);
-          if (A === 3) box(g, x * 1.15 - 0.27, 1.3, z * 1.15 - 0.27, 0.54, 0.06, 0.54, P.trim);
+          if (A >= 3) box(g, x * 1.15 - 0.27, 1.3, z * 1.15 - 0.27, 0.54, 0.06, 0.54, P.trim);
         });
         box(g, -0.3, 0, 1.3, 0.6, 0.7, 0.04, 0x3a2616);
-        flagAt(g, 0, A === 3 ? 3.0 : 2.5, 0, P.flag);
+        flagAt(g, 0, A >= 3 ? 3.0 : 2.5, 0, P.flag);
       }
       break;
   }
@@ -398,7 +455,9 @@ const ICONS = {
   wall: [[24, 30, 9, 12, 0xc6ccd1, 0x9aa1a8], [15, 26, 5, 8, 0xc6ccd1, 0x9aa1a8]],
   tower: [[24, 30, 8, 16, 0xb9bfc5, 0x9aa1a8], [24, 16, 11, 3, 0xc6ccd1, 0xc6ccd1]],
   ballista: [[24, 30, 8, 16, 0xb9bfc5, 0x9aa1a8], [24, 16, 11, 3, 0xc6ccd1, 0xc6ccd1], [24, 12, 6, 2, 0x7b5232, 0x5a3a22]],
-  cannon: [[24, 31, 10, 13, 0x6c737a, 0x6c737a], [24, 18, 12, 3, 0xe3b44e, 0xb98c2a], [24, 13, 4, 5, 0x25282c, 0x25282c]]
+  cannon: [[24, 31, 10, 13, 0x6c737a, 0x6c737a], [24, 18, 12, 3, 0xe3b44e, 0xb98c2a], [24, 13, 4, 5, 0x25282c, 0x25282c]],
+  bombard: [[24, 32, 13, 10, 0xe9e3d7, 0xcfc8ba], [24, 22, 15, 3, 0xd4af37, 0xb8922a], [24, 16, 8, 7, 0x8c6d3a, 0x6b5230]],
+  turret: [[24, 31, 9, 15, 0x707b87, 0x5a636e], [24, 16, 11, 3, 0xe0b24a, 0xb8922a], [24, 11, 7, 6, 0xb87333, 0x8f5a28]]
 };
 function iconSVG(type) {
   if (type === 'wall' && G.age === 0) type = 'palisade';

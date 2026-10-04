@@ -47,7 +47,9 @@ const tipEl = $('tip');
 const ENEMY_INFO = {
   wolf: 'Fast and fragile. Goes straight for your animals.', boar: 'Tough charger with lots of health.',
   raccoon: 'Throws stones from range. Kill it before it wears your walls down.', badger: 'Siege ram. Smashes walls and buildings, so keep it away from them.',
-  chief: 'Bear Warlord, the boss of the raid. Focus every tower and defender on it.'
+  chief: 'Bear Warlord, the boss of the raid. Focus every tower and defender on it.',
+  direwolf: 'Dire Wolf: bigger, faster and meaner. Turrets and lancers deal with it best.',
+  troll: 'Troll: a walking siege engine with enormous health. Bombards and knights, and keep settlers well away.'
 };
 function statsRow(list) { return '<div class="st">' + list.map(x => `<span>${x}</span>`).join('') + '</div>'; }
 function tipBuilding(def, extra, locked) {
@@ -154,7 +156,7 @@ function updateHUD() {
   setText('vPop', popCount() + '/' + G.popCap); $('popChip').classList.toggle('full', popCount() >= G.popCap);
   setText('ageName', AGES[G.age].name);
   const ab = $('ageBtn');
-  if (G.age >= 3) { ab.disabled = true; setText('ageBtn', 'Max age'); $('ageCost').innerHTML = ''; }
+  if (G.age >= AGES.length - 1) { ab.disabled = true; setText('ageBtn', 'Max age'); $('ageCost').innerHTML = ''; }
   else {
     const c = AGE_COST[G.age + 1];
     const html = costHTML(c);
@@ -582,7 +584,7 @@ function endGame(win) {
   G.over = true; G.paused = true;
   $('endTitle').textContent = win ? 'The chronicle is complete' : 'The Great Hall has fallen';
   $('endText').textContent = win
-    ? `Fifteen raids broke against your walls. You reached the ${AGES[G.age].name} and defeated ${G.kills} raiders.`
+    ? `Twenty-five raids broke against your walls. You reached the ${AGES[G.age].name} and defeated ${G.kills} raiders.`
     : `The clan held out for ${G.wave > 0 ? G.wave - 1 : 0} raids and defeated ${G.kills} raiders in the ${AGES[G.age].name}.`;
   $('endScreen').classList.add('on');
   sfx(win ? 'win' : 'lose');
