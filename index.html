@@ -132,8 +132,8 @@ html,body{overscroll-behavior:none}
 #infoClose{position:absolute;top:4px;right:4px;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--chip);color:var(--head);font-size:15px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0;z-index:2}
 #buildCancel{display:none;white-space:nowrap;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--dockh,150px) + 10px);z-index:4;min-height:44px;padding:8px 18px;font-size:15px;box-shadow:0 2px 10px rgba(0,0,0,.35)}
 #buildCancel.on{display:block}
-#zoomCtrls{display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);flex-direction:column;gap:6px;z-index:3}
-#zoomCtrls button{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--chip);color:var(--head);font-size:24px;line-height:1;padding:0;cursor:pointer;opacity:.92}
+#zoomCtrls{display:none;position:absolute;right:8px;top:calc(50% - 160px);flex-direction:column;gap:6px;z-index:3}
+#zoomCtrls button{touch-action:none;-webkit-user-select:none;user-select:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--chip);color:var(--head);font-size:24px;line-height:1;padding:0;cursor:pointer;opacity:.92}
 #zoomCtrls #rotL,#zoomCtrls #rotR,#zoomCtrls #tiltBtn,#zoomCtrls #compass{font-size:22px}
 @media (pointer:coarse){#zoomCtrls{display:flex}}
 @media (max-height:520px){#zoomCtrls{flex-wrap:wrap;max-height:calc(100vh - 150px);align-content:flex-end}#zoomCtrls button{width:38px;height:38px;font-size:19px}}
@@ -221,7 +221,7 @@ body{-webkit-user-select:none;user-select:none}
     <button class="btn" id="btnMenu" aria-label="More controls" aria-expanded="false">&#9776;</button>
     <button class="btn" id="btnRotL" aria-label="Rotate left">&#8634;</button>
     <button class="btn" id="btnRotR" aria-label="Rotate right">&#8635;</button>
-    <button class="btn" id="btnSave" aria-label="Save and load">Save</button>
+    <button class="btn" id="btnSave" aria-label="Game menu">Menu</button>
     <button class="btn" id="btnArmy" aria-label="Select all defenders">Army</button>
   </div>
   <div class="chip ctrls" id="envCtrls">
@@ -253,16 +253,19 @@ body{-webkit-user-select:none;user-select:none}
 
 <div class="veil" id="saveModal">
   <div class="sheet">
-    <h2>Save and load</h2>
+    <h2>Game menu</h2>
     <div class="ver" id="verLine"></div>
+    <div class="row2" style="margin-bottom:10px"><button class="btn go" id="menuResume">Resume</button><button class="btn warn" id="saveNew">New game</button></div>
+    <h3 style="margin:6px 0;font-size:15px;color:var(--head)">Save and load</h3>
     <div class="slots" id="slots"></div>
     <p id="storeNote" style="display:none;color:var(--danger)">This browser is blocking saves. Use Export to keep a file, and Import to load it later.</p>
     <div class="row2">
       <button class="btn" id="saveExport">Export file</button>
       <button class="btn" id="saveImport">Import file</button>
       <input type="file" id="saveFile" accept="application/json,.json" hidden>
-      <button class="btn go" id="saveClose">Close</button>
+      <button class="btn" id="saveClose">Close</button>
     </div>
+    <details style="margin-top:10px"><summary style="cursor:pointer;color:var(--head)">How to play on a phone</summary><p style="font-size:13px;color:var(--muted)">Drag to pan. Pinch to zoom, twist two fingers to rotate. Tap an animal to select it, tap the ground to send it there, tap it again or press the x on its panel to deselect. Pick a card in the dock, then tap the ground to build.</p></details>
   </div>
 </div>
 <div id="toast"></div>

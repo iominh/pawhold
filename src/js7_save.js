@@ -174,6 +174,17 @@ function closeSaveModal(loaded) {
 }
 $('btnSave').addEventListener('click', () => { sfx('click'); openSaveModal(); });
 $('saveClose').addEventListener('click', () => closeSaveModal(false));
+$('menuResume').addEventListener('click', () => closeSaveModal(false));
+let newArmed = 0;
+$('saveNew').addEventListener('click', () => {
+  const b = $('saveNew');
+  if (!newArmed) { newArmed = setTimeout(() => { newArmed = 0; b.textContent = 'New game'; }, 3500); b.textContent = 'Tap again to restart'; return; }
+  clearTimeout(newArmed); newArmed = 0; b.textContent = 'New game';
+  audioInit(); newGame(); gameStarted = true; autoT = 15; cam.tx = KX; cam.tz = KZ;
+  $('endScreen').classList.remove('on'); $('intro').classList.remove('on');
+  renderDock(); updateDock(true); ghost.visible = false; closeSaveModal(true); G.paused = false;
+  toast('New game started. Your earlier saves are still in their slots');
+});
 $('saveExport').addEventListener('click', () => {
   if (!gameStarted) return toast('Start a game first', true);
   const blob = new Blob([JSON.stringify(snapshot())], { type: 'application/json' }), a = document.createElement('a');

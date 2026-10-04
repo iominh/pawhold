@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.3.1', GAME_BUILD = '58f64d6';
+const GAME_VERSION = '1.3.2', GAME_BUILD = '8f138e4';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 15;
@@ -2213,6 +2213,7 @@ function panBy(dx, dy) {
   cam.tx += -cy * dx * k + (-sy) * dy * k;
   cam.tz += sy * dx * k + (-cy) * dy * k;
 }
+const TWO_PI = Math.PI * 2;
 const panVel = { x: 0, y: 0 };
 const camGoal = { yaw: null, pitch: null };
 function panKeys(dt) {
@@ -2731,15 +2732,30 @@ function endPointer(e, cancelled) {
 }
 canvasEl.addEventListener('pointerup', e => endPointer(e, false));
 canvasEl.addEventListener('pointercancel', e => endPointer(e, true));
-const TWO_PI = Math.PI * 2;
 function turnBy(a) { const base = camGoal.yaw !== null ? camGoal.yaw : cam.yaw; camGoal.yaw = base + a; panVel.x = panVel.y = 0; }
-$('rotL').addEventListener('click', () => turnBy(-Math.PI / 4));
-$('rotR').addEventListener('click', () => turnBy(Math.PI / 4));
-$('tiltBtn').addEventListener('click', () => { camGoal.pitch = cam.pitch > 0.95 ? 0.6 : 1.15; });
-$('compass').addEventListener('click', () => { camGoal.yaw = 0.8 + Math.round((cam.yaw - 0.8) / TWO_PI) * TWO_PI; camGoal.pitch = 0.72; });
-const zoomBy = f => { cam.dist *= f; panVel.x = panVel.y = 0; };
-$('zoomIn').addEventListener('click', () => zoomBy(0.78));
-$('zoomOut').addEventListener('click', () => zoomBy(1.28));
+function turnBy(a) { const base = camGoal.yaw !== null ? camGoal.yaw : cam.yaw; camGoal.yaw = base + a; panVel.x = panVel.y = 0; }
+const camHold = { id: null, t0: 0 };
+function camStep(id) {
+  if (id === 'zoomIn') cam.dist *= 0.78; else if (id === 'zoomOut') cam.dist *= 1.28;
+  else if (id === 'rotL') turnBy(-Math.PI / 4); else if (id === 'rotR') turnBy(Math.PI / 4);
+  else if (id === 'tiltBtn') camGoal.pitch = cam.pitch > 0.95 ? 0.6 : 1.15;
+  else if (id === 'compass') { camGoal.yaw = 0.8 + Math.round((cam.yaw - 0.8) / TWO_PI) * TWO_PI; camGoal.pitch = 0.72; }
+  panVel.x = panVel.y = 0;
+}
+function camHoldTick(dt) {   // press and hold zoom / rotate / tilt buttons for smooth continuous movement
+  if (!camHold.id || performance.now() - camHold.t0 < 260) return;
+  camGoal.yaw = camGoal.pitch = null;
+  if (camHold.id === 'zoomIn') cam.dist *= Math.exp(-1.3 * dt); else if (camHold.id === 'zoomOut') cam.dist *= Math.exp(1.3 * dt);
+  else if (camHold.id === 'rotL') cam.yaw -= 1.5 * dt; else if (camHold.id === 'rotR') cam.yaw += 1.5 * dt;
+  else if (camHold.id === 'tiltBtn') cam.pitch += (camHold.dir || 1) * 0.7 * dt;
+}
+for (const id of ['zoomIn', 'zoomOut', 'rotL', 'rotR', 'tiltBtn', 'compass']) {
+  const b = $(id);
+  b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); try { b.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ } camHold.id = id; camHold.t0 = performance.now(); camHold.dir = cam.pitch > 0.95 ? -1 : 1; });
+  const up = e => { if (camHold.id !== id) return; const held = performance.now() - camHold.t0; camHold.id = null; if (held < 260 && e.type === 'pointerup') camStep(id); };
+  b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+  b.addEventListener('click', e => e.preventDefault());
+}
 canvasEl.addEventListener('wheel', e => { e.preventDefault(); cam.dist *= Math.exp(e.deltaY * 0.001); }, { passive: false });
 window.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
@@ -2795,7 +2811,7 @@ function frame(now) {
   last = now;
   if (!G.paused && !G.over) for (let k = 0; k < G.speed; k++) step(dt);
   const adt = G.paused ? 0 : dt * G.speed;
-  panKeys(dt); applyCam();
+  camHoldTick(dt); panKeys(dt); applyCam();
   updateEnv(dt, now); audioUpdate(dt); autosaveTick(dt);
   if (tipHold && now > tipHold) { tipHold = 0; hideTip(); }
   for (const u of units) if (!u.dead) animateUnit(u, adt);
@@ -3012,6 +3028,17 @@ function closeSaveModal(loaded) {
 }
 $('btnSave').addEventListener('click', () => { sfx('click'); openSaveModal(); });
 $('saveClose').addEventListener('click', () => closeSaveModal(false));
+$('menuResume').addEventListener('click', () => closeSaveModal(false));
+let newArmed = 0;
+$('saveNew').addEventListener('click', () => {
+  const b = $('saveNew');
+  if (!newArmed) { newArmed = setTimeout(() => { newArmed = 0; b.textContent = 'New game'; }, 3500); b.textContent = 'Tap again to restart'; return; }
+  clearTimeout(newArmed); newArmed = 0; b.textContent = 'New game';
+  audioInit(); newGame(); gameStarted = true; autoT = 15; cam.tx = KX; cam.tz = KZ;
+  $('endScreen').classList.remove('on'); $('intro').classList.remove('on');
+  renderDock(); updateDock(true); ghost.visible = false; closeSaveModal(true); G.paused = false;
+  toast('New game started. Your earlier saves are still in their slots');
+});
 $('saveExport').addEventListener('click', () => {
   if (!gameStarted) return toast('Start a game first', true);
   const blob = new Blob([JSON.stringify(snapshot())], { type: 'application/json' }), a = document.createElement('a');

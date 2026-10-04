@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.2
+- New Game menu: the Save button is now Menu. It has Resume, New game (tap twice to confirm; saves are kept), the save slots, export and import, and a short phone how-to-play.
+- Camera buttons on the right reworked to respond on touch down: tap for a step (zoom, 45 degree turn, tilt flip, reset) or press and hold for smooth continuous zoom, rotation and tilt.
+
 ## 1.3.1
 - Fix: the Stop building button no longer overlaps the hint toast; toasts now sit above the button and the button text stays on one line.
 
