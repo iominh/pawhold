@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.1.0', GAME_BUILD = '5e84801';
+const GAME_VERSION = '1.1.1', GAME_BUILD = '731ef4d';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 15;
@@ -2825,14 +2825,55 @@ function applySnapshot(s) {
 }
 
 /* ---- storage ---- */
+const mem = {};            // in-memory copy: works even when localStorage is blocked
+let cloud = null, cloudOK = false, cloudBusy = {}, cloudDirty = {};
 function storeGet(slot) {
-  try { const raw = localStorage.getItem(SAVE_PREFIX + slot); if (!raw) return null; const s = JSON.parse(raw); return validSave(s) ? s : null; } catch (e) { return null; }
+  let s = mem[slot] || null;
+  try { const raw = localStorage.getItem(SAVE_PREFIX + slot); if (raw) { const l = JSON.parse(raw); if (validSave(l) && (!s || l.ts > s.ts)) s = l; } } catch (e) { /* blocked */ }
+  return s && validSave(s) ? s : null;
+}
+function cloudPush(slot) {
+  if (!cloud) return;
+  if (cloudBusy[slot]) { cloudDirty[slot] = true; return; }
+  cloudBusy[slot] = true;
+  const s = mem[slot];
+  const op = s ? cloud.doc('save_' + slot).set({ d: JSON.stringify(s), ts: s.ts }) : cloud.doc('save_' + slot).delete();
+  op.then(() => { cloudOK = true; }).catch(() => { cloudOK = false; }).then(() => {
+    cloudBusy[slot] = false;
+    if (cloudDirty[slot]) { cloudDirty[slot] = false; cloudPush(slot); }
+  });
 }
 function storeSet(slot, snap) {
-  try { localStorage.setItem(SAVE_PREFIX + slot, JSON.stringify(snap)); storageOK = true; return true; }
-  catch (e) { storageOK = false; if (!storageWarned) { storageWarned = true; toast('This browser blocks saving. Use Export to keep a save file.', true); } return false; }
+  mem[slot] = snap;
+  let ls = true;
+  try { localStorage.setItem(SAVE_PREFIX + slot, JSON.stringify(snap)); } catch (e) { ls = false; }
+  cloudPush(slot);
+  storageOK = ls || !!cloud;
+  if (!storageOK && !storageWarned) { storageWarned = true; toast('This browser blocks saving. Use Export to keep a save file.', true); }
+  return true;
 }
-function storeDel(slot) { try { localStorage.removeItem(SAVE_PREFIX + slot); } catch (e) { /* ignore */ } }
+function storeDel(slot) {
+  delete mem[slot];
+  try { localStorage.removeItem(SAVE_PREFIX + slot); } catch (e) { /* ignore */ }
+  cloudPush(slot);
+}
+/* artifact database (private per viewer): survives when the browser blocks localStorage */
+(async function cloudInit() {
+  try {
+    if (!window.claude || !claude.use) return;
+    const [db, user] = await Promise.all([claude.use('db'), claude.use('user')]);
+    if (!db || !user) return;
+    const id = await user.id(); if (!id) return;
+    cloud = db.collection('data/users/' + id);
+    const snap = await cloud.get();
+    snap.docs.forEach(d => {
+      const slot = d.id.replace(/^save_/, ''), v = d.data();
+      try { const s = JSON.parse(v.d); if (validSave(s) && SAVE_SLOTS.some(x => x[0] === slot) && (!mem[slot] || s.ts > mem[slot].ts)) mem[slot] = s; } catch (e) { /* skip */ }
+    });
+    cloudOK = true; storageOK = true;
+    if (typeof refreshContinue === 'function') refreshContinue();
+  } catch (e) { cloud = null; }
+})();
 function latestSave() {
   let best = null;
   for (const [id] of SAVE_SLOTS) { const s = storeGet(id); if (s && (!best || s.ts > best.ts)) best = { id, s }; }
@@ -2854,7 +2895,7 @@ let autoT = 20;
 function autosaveTick(dt) {
   if (!gameStarted || G.paused || G.over) return;
   autoT -= dt;
-  if (autoT <= 0) { autoT = 20; saveTo('auto', true); }
+  if (autoT <= 0) { autoT = 15; saveTo('auto', true); }
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden && gameStarted && !G.over) saveTo('auto', true); });
 window.addEventListener('pagehide', () => { if (gameStarted && !G.over) saveTo('auto', true); });
@@ -2913,14 +2954,17 @@ $('saveFile').addEventListener('change', e => {
 });
 
 /* ---- start screen: version and continue ---- */
+let contSlot = null;
+function refreshContinue() {
+  const last = latestSave(), btn = $('contBtn');
+  if (!last || gameStarted) return;
+  contSlot = last.id; btn.style.display = '';
+  btn.textContent = `Continue (${last.id === 'auto' ? 'autosave' : 'slot ' + last.id}: raid ${last.s.meta.wave}, ${fmtDate(last.s.ts)})`;
+}
 (function introInit() {
   $('introVer').textContent = `Version ${GAME_VERSION}`;
-  const last = latestSave(), btn = $('contBtn');
-  if (last) {
-    btn.style.display = '';
-    btn.textContent = `Continue (${last.id === 'auto' ? 'autosave' : 'slot ' + last.id}: raid ${last.s.meta.wave}, ${fmtDate(last.s.ts)})`;
-    btn.addEventListener('click', () => { audioInit(); gameStarted = true; applySnapshot(last.s); sfx('level'); });
-  }
+  $('contBtn').addEventListener('click', () => { const s = contSlot && storeGet(contSlot); if (!s) return; audioInit(); gameStarted = true; applySnapshot(s); sfx('level'); });
+  refreshContinue();
   $('startBtn').addEventListener('click', () => { gameStarted = true; autoT = 20; });
   $('againBtn').addEventListener('click', () => { gameStarted = true; autoT = 20; });
 })();
