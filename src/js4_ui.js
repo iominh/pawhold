@@ -555,7 +555,7 @@ function frame(now) {
   if (!G.paused && !G.over) for (let k = 0; k < G.speed; k++) step(dt);
   const adt = G.paused ? 0 : dt * G.speed;
   panKeys(dt); applyCam();
-  updateEnv(dt, now); audioUpdate(dt);
+  updateEnv(dt, now); audioUpdate(dt); autosaveTick(dt);
   if (tipHold && now > tipHold) { tipHold = 0; hideTip(); }
   for (const u of units) if (!u.dead) animateUnit(u, adt);
   for (const e of enemies) if (!e.dead) animateUnit(e, adt);

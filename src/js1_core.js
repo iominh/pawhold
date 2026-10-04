@@ -138,8 +138,8 @@ function removeNode(n) {
 }
 function freeGrass(i, j) { return inMap(i, j) && kind[i][j] === 'g' && !occ[i][j] && !nodeAt[i][j] && tileDist(i, j) > 3.6 && i > 1 && j > 1 && i < MAP - 2 && j < MAP - 2; }
 
-function genWorld() {
-  seed = Math.random() * 500;
+function genWorld(saved) {
+  seed = saved ? saved.seed : Math.random() * 500;
   for (const n of nodes.slice()) removeNode(n);
   if (terrain) { scene.remove(terrain); if (terrain.dispose) terrain.dispose(); }
   kind = []; topY = []; occ = []; nodeAt = [];
@@ -171,6 +171,7 @@ function genWorld() {
     q++;
   }
   scene.add(terrain);
+  if (saved) { for (const n of saved.nodes) if (freeGrass(n.i, n.j) || (inMap(n.i, n.j) && !nodeAt[n.i][n.j] && kind[n.i][n.j] !== 'p')) addNode(n.type, n.i, n.j, n.amt); return; }
 
   // keep tiles
   // forests

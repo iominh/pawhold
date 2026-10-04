@@ -714,12 +714,12 @@ function updateWorker(u, dt) {
 }
 
 /* ===================== units ===================== */
-function makeUnit(role, x, z) {
+function makeUnit(role, x, z, spOverride) {
   const d = UDEF[role];
-  const sp = role === 'worker' ? pick(['rabbit', 'fox', 'panda', 'bear']) : d.sp;
+  const sp = spOverride || (role === 'worker' ? pick(['rabbit', 'fox', 'panda', 'bear']) : d.sp);
   const model = makeUnitModel(role, sp, d.scale || 1);
   const u = {
-    team: 0, role, def: d, x, z, y: groundAt(x, z), hp: d.hp, maxhp: d.hp, speed: d.speed, model, state: 'idle', face: rnd(0, 6.28),
+    team: 0, role, sp, def: d, x, z, y: groundAt(x, z), hp: d.hp, maxhp: d.hp, speed: d.speed, model, state: 'idle', face: rnd(0, 6.28),
     walk: 0, atk: 0, cd: rnd(0, 0.5), carry: 0, carryType: null, slot: G.slot++, hgt: 0.8, barW: 0.55, dead: false, wait: 0, think: 0, hitT: 0, moved: false,
     name: pick(NAMES), lvl: 1, xp: 0, dmgM: 1, abCd: 0, shield: 0, order: null, hold: false, home: null, trait: role === 'worker' ? null : pick(Object.keys(TRAITS)), giveUp: 0
   };

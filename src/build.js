@@ -4,8 +4,12 @@
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const here = __dirname;
 const src = f => fs.readFileSync(path.join(here, f), 'utf8');
-const ORDER = ['js1_core.js', 'js2_models.js', 'js3_sim.js', 'js5_env.js', 'js6_audio.js', 'js4_ui.js'];
-const game = ORDER.map(src).join('\n');
+const ORDER = ['js1_core.js', 'js2_models.js', 'js3_sim.js', 'js5_env.js', 'js6_audio.js', 'js4_ui.js', 'js7_save.js'];
+let version = '1.1.0';
+for (const p of [path.join(here, '..', 'package.json'), path.join(here, 'package.json')]) { try { version = JSON.parse(fs.readFileSync(p, 'utf8')).version || version; break; } catch (e) { /* keep default */ } }
+const body = ORDER.map(src).join('\n');
+const build = crypto.createHash('sha1').update(body + src('head.html')).digest('hex').slice(0, 7);
+const game = `const GAME_VERSION = '${version}', GAME_BUILD = '${build}';\n` + body;
 const head = src('head.html');
 const isPwa = process.argv[2] === 'pwa';
 if (!isPwa) fs.writeFileSync(path.join(here, 'game.js'), game);

@@ -130,6 +130,15 @@ html,body{overscroll-behavior:none}
 #info .btn.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,138,18,.4)}
 #info .btn[disabled]{opacity:.5}
 #info{max-height:calc(100vh - 230px);overflow:auto}
+#contBtn{align-self:flex-start;padding:7px 18px;font-size:16px}
+.veil .sheet{max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow:auto}
+#introVer,.ver{color:var(--muted);font-size:13px;letter-spacing:.04em;margin-top:-4px}
+.slots{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto}
+.slot{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 10px;background:var(--panel2);border:1px solid var(--line);border-radius:7px}
+.slot .meta{flex:1 1 180px;min-width:0}
+.slot .meta b{display:block;color:var(--head);font-weight:700}
+.slot .meta small{color:var(--muted);font-size:12.5px;line-height:1.3;display:block}
+.row2{display:flex;gap:8px;flex-wrap:wrap}
 #marquee{position:fixed;border:1px dashed var(--gold);background:rgba(240,185,74,.14);pointer-events:none;display:none;z-index:20}
 
 @media (max-width:640px){
@@ -200,6 +209,7 @@ body{-webkit-user-select:none;user-select:none}
     <button class="btn" id="btnMenu" aria-label="More controls" aria-expanded="false">&#9776;</button>
     <button class="btn" id="btnRotL" aria-label="Rotate left">&#8634;</button>
     <button class="btn" id="btnRotR" aria-label="Rotate right">&#8635;</button>
+    <button class="btn" id="btnSave" aria-label="Save and load">Save</button>
     <button class="btn" id="btnArmy" aria-label="Select all defenders">Army</button>
   </div>
   <div class="chip ctrls" id="envCtrls">
@@ -226,6 +236,20 @@ body{-webkit-user-select:none;user-select:none}
   <div class="cards" id="cards"></div>
 </div>
 
+<div class="veil" id="saveModal">
+  <div class="sheet">
+    <h2>Save and load</h2>
+    <div class="ver" id="verLine"></div>
+    <div class="slots" id="slots"></div>
+    <p id="storeNote" style="display:none;color:var(--danger)">This browser is blocking saves. Use Export to keep a file, and Import to load it later.</p>
+    <div class="row2">
+      <button class="btn" id="saveExport">Export file</button>
+      <button class="btn" id="saveImport">Import file</button>
+      <input type="file" id="saveFile" accept="application/json,.json" hidden>
+      <button class="btn go" id="saveClose">Close</button>
+    </div>
+  </div>
+</div>
 <div id="toast"></div>
 <div id="tip" role="tooltip"></div>
 <div id="marquee"></div>
@@ -233,6 +257,8 @@ body{-webkit-user-select:none;user-select:none}
 <div class="veil on" id="intro">
   <div class="sheet">
     <h1>Pawhold</h1>
+    <div class="ver" id="introVer"></div>
+    <button class="btn go" id="contBtn" style="display:none"></button>
     <p>A clan of foxes, pandas, rabbits and bears settles a green valley. Raise a medieval town, wall it in, and hold it against wolves, boars and badger rams as your age advances from thatch to cannon.</p>
     <ul>
       <li>Settlers gather wood, stone, berries and gold on their own, and build whatever you place.</li>
