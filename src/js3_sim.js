@@ -329,7 +329,7 @@ function validSpot(x, z) {
   return [KX, KZ + 2.4];
 }
 function unstick(u) {
-  u.path = null; u.stuckT = 0; u.repathT = 0; u.nudges = (u.nudges || 0) + 1;
+  u.path = null; u.stuckT = 0; u.repathT = 0; u.noLos = G.t + 2; u.nudges = (u.nudges || 0) + 1;
   const sp = validSpot(u.x + rnd(-1.2, 1.2), u.z + rnd(-1.2, 1.2));
   u.x = sp[0]; u.z = sp[1];
   if (u.role === 'worker' && u.nudges >= 2) { if (u.node) { u.badNode = u.node; u.badUntil = G.t + 30; } releaseWorker(u); u.state = 'idle'; u.wait = 0.5; u.nudges = 0; }
@@ -339,7 +339,7 @@ function watchdog(u, dt) {
   if (u.mv === undefined || G.t - u.mv > 0.3) { u.wdT = 0; return; }
   if (!u.wdT) { u.wdT = 0.0001; u.wdX = u.x; u.wdZ = u.z; return; }
   u.wdT += dt;
-  if (u.wdT >= 2.5) {
+  if (u.wdT >= 1.5) {
     const moved = Math.hypot(u.x - u.wdX, u.z - u.wdZ);
     u.wdT = 0;
     if (moved < 0.25) unstick(u); else u.nudges = 0;
@@ -401,6 +401,12 @@ function stepToward(u, tx, tz, dt, ignoreB) {
     const bl = blockedAt(nx, nz, u.team, ignoreB);
     if (!bl) { u.x = nx; u.z = nz; u.face = aa; u.moved = true; return { d, blocked: direct, moved: true }; }
     if (k === 0) direct = bl;
+  }
+  // slide along an axis when the diagonal is pinched between tiles
+  const sx = Math.sign(dx) * sp, sz = Math.sign(dz) * sp;
+  const opts = Math.abs(dx) > Math.abs(dz) ? [[sx, 0], [0, sz]] : [[0, sz], [sx, 0]];
+  for (const [mx, mz] of opts) {
+    if ((mx || mz) && !blockedAt(u.x + mx, u.z + mz, u.team, ignoreB)) { u.x += mx; u.z += mz; u.face = Math.atan2(mx, mz); u.moved = true; return { d, blocked: direct, moved: true }; }
   }
   return { d, blocked: direct, moved: false };
 }
@@ -491,22 +497,24 @@ function findPath(team, sx, sz, tx, tz, ignoreB) {
   return out;
 }
 function losClear(team, x0, z0, x1, z1, ignoreB) {
-  const n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 0.3);
-  for (let k = 1; k < n; k++) {
-    const t = k / n;
-    if (blockedAt(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, team, ignoreB)) return false;
+  const len = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(len / 0.25);
+  const px = len > 0 ? -(z1 - z0) / len * 0.27 : 0, pz = len > 0 ? (x1 - x0) / len * 0.27 : 0;
+  for (let k = 1; k <= n; k++) {
+    const t = k / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t;
+    if (blockedAt(x, z, team, ignoreB) || blockedAt(x + px, z + pz, team, ignoreB) || blockedAt(x - px, z - pz, team, ignoreB)) return false;
   }
   return true;
 }
 // Walk toward (tx,tz) by the best route. Returns like stepToward, plus `breach` when a raider reaches a wall or building on its route.
 function moveTo(u, tx, tz, dt, ignoreB) {
-  u.mv = G.t;
   const d = Math.hypot(tx - u.x, tz - u.z);
+  if (d < 1.2) u.mvNear = G.t; else u.mv = G.t;
   if (d < 0.001) return { d, blocked: false, moved: false };
-  if (d < 1.5 || losClear(u.team, u.x, u.z, tx, tz, ignoreB)) {
+  if (d < 0.6 || (G.t > (u.noLos || 0) && losClear(u.team, u.x, u.z, tx, tz, ignoreB))) {
     u.path = null;
     const r = stepToward(u, tx, tz, dt, ignoreB);
     u.stuckT = r.moved ? 0 : (u.stuckT || 0) + dt;
+    if (d >= 0.6 && u.stuckT > 0.4) { u.noLos = G.t + 2; u.stuckT = 0.7; u.repathT = 0; }
     return r;
   }
   const key = Math.round(tx) + ',' + Math.round(tz);
@@ -609,14 +617,15 @@ function updateWorker(u, dt) {
   if (scare) { if (u.state !== 'flee') { releaseWorker(u); u.state = 'flee'; } u.fleeT = 2.5; }
   if (u.state === 'flee') {
     u.fleeT -= dt;
-    moveTo(u, KX, KZ + 2.4, dt * 1.25);
+    { const fx = KX + ((u.slot % 7) - 3) * 0.75, fz = KZ + 2.7 + (Math.floor(u.slot / 7) % 3) * 0.75;
+      if (Math.hypot(fx - u.x, fz - u.z) > 0.9) moveTo(u, fx, fz, dt * 1.25); }
     if (u.fleeT <= 0 && !scare) u.state = 'idle';
     return;
   }
   switch (u.state) {
     case 'idle':
       u.wait -= dt;
-      if (u.wait > 0) { if (u.wp && Math.hypot(u.wp[0] - u.x, u.wp[1] - u.z) > 0.3 && (u.stuckT || 0) < 1.2) moveTo(u, u.wp[0], u.wp[1], dt * 0.6); break; }
+      if (u.wait > 0) { if (u.wp && Math.hypot(u.wp[0] - u.x, u.wp[1] - u.z) > 0.6 && (u.stuckT || 0) < 1.2) moveTo(u, u.wp[0], u.wp[1], dt * 0.6); break; }
       u.wait = 0.4; u.wp = null;
       if (u.carry > 0) { u.state = 'toDrop'; break; }
       { const s = findSite(u); if (s) { s.builders++; u.site = s; u.state = 'toSite'; break; } }
@@ -765,7 +774,7 @@ function updateSoldier(u, dt) {
   }
   if (u.hold || u.giveUp > G.t) return;
   const sp = u.home || validSpot(...rallyPos(u.slot));
-  if (Math.hypot(sp[0] - u.x, sp[1] - u.z) > 0.6) {
+  if (Math.hypot(sp[0] - u.x, sp[1] - u.z) > 1.0) {
     const r = moveTo(u, sp[0], sp[1], dt);
     if (r.unreachable || (u.stuckT || 0) > 1.5) { u.giveUp = G.t + 4; u.stuckT = 0; if (u.home) u.home = null; }
   }
@@ -924,7 +933,7 @@ function step(dt) {
   G.popCap = BDEF.keep.pop + buildings.reduce((s, b) => s + (b.done && b.def.pop && b.type !== 'keep' ? b.def.pop : 0), 0);
   for (const b of buildings) {
     if (!b.done) continue;
-    if (b.def.income) for (const k in b.def.income) G.res[k] += b.def.income[k] * dt;
+    if (b.def.income) for (const k in b.def.income) G.res[k] += b.def.income[k] * dt * (k === 'food' ? seasonFood() : 1);
     if (b.def.range) updateTower(b, dt);
   }
   // new settlers

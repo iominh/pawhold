@@ -53,7 +53,7 @@ const SMITH_COST = [{ gold: 80, stone: 40 }, { gold: 160, stone: 90 }, { gold: 3
 /* ===================== renderer, scene, light ===================== */
 const stageEl = document.getElementById('stage');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio || 1, 1.75), 2.5));  // supersample on low-dpi screens to smooth jagged voxel edges
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 stageEl.appendChild(renderer.domElement);
@@ -66,14 +66,15 @@ const sun = new THREE.DirectionalLight(AGES[0].sun, AGES[0].sunI);
 sun.position.set(KX + 26, 46, KZ + 18);
 sun.target.position.set(KX, 0, KZ);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 140 });
-sun.shadow.bias = -0.0006;
+sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 140 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
 scene.add(hemi, sun, sun.target);
 
 function resize() {
   const w = stageEl.clientWidth || window.innerWidth, h = stageEl.clientHeight || window.innerHeight;
   renderer.setSize(w, h, false);
+  { const dk = document.getElementById('dock'); if (dk) document.documentElement.style.setProperty('--dockh', dk.offsetHeight + 'px'); }
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
@@ -84,6 +85,7 @@ if (window.ResizeObserver) new ResizeObserver(resize).observe(stageEl);
 let seed = 0, kind = [], topY = [], occ = [], nodeAt = [];
 let terrain = null, terrainBase = [];
 const nodes = [];
+const leafMats = [0x5cc04a, 0x6fcf57, 0x4fb243].map(c => new THREE.MeshLambertMaterial({ color: c }));
 function hash(x, z) { const n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return n - Math.floor(n); }
 function vnoise(x, z) {
   const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi;
@@ -100,11 +102,11 @@ function addNode(type, i, j, amt) {
   g.rotation.y = rnd(0, 6.28);
   let max = 30;
   if (type === 'wood') {
-    const t1 = pick([0x3f8a3c, 0x4a9a45, 0x367a38]);
+    const lm = { mat: pick(leafMats) };
     box(g, -0.07, 0, -0.07, 0.14, 0.35, 0.14, 0x6b4a2f);
-    box(g, -0.34, 0.3, -0.34, 0.68, 0.22, 0.68, t1);
-    box(g, -0.25, 0.5, -0.25, 0.5, 0.22, 0.5, t1);
-    box(g, -0.14, 0.7, -0.14, 0.28, 0.2, 0.28, t1);
+    box(g, -0.34, 0.3, -0.34, 0.68, 0.22, 0.68, 0, lm);
+    box(g, -0.25, 0.5, -0.25, 0.5, 0.22, 0.5, 0, lm);
+    box(g, -0.14, 0.7, -0.14, 0.28, 0.2, 0.28, 0, lm);
     g.scale.y = rnd(0.85, 1.3);
   } else if (type === 'stone') {
     max = 60;

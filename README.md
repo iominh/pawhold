@@ -15,7 +15,8 @@ Plain HTML + [Three.js r128](https://threejs.org/), no framework and no build st
 | Command | Right-click ground to move, an enemy to attack, a tree/rock/site/damaged building to send settlers to work. Keys: `M` move, `T` attack-move, `H` hold, `X` stop, `F` ability, `Esc` deselect. |
 | Levels | Defenders gain XP from kills and settlers from working. Defenders learn an ability at level 3 (Volley, Bamboo Guard, Cleave, Aimed Shot). |
 | Healing | Animals heal slowly when out of combat, faster near the Great Hall, and quickly near a Healing Hut. Idle settlers repair damaged buildings for free once a raid ends. You can also pay to repair instantly from a building's panel. |
-| Theme and weather | Follows your light/dark setting. Buttons cycle theme, weather (clear, cloudy, rain, storm, snow, fog) and sound. |
+| Time, seasons, weather | Days run sunrise, midday, sunset, night; the year turns spring, summer, autumn (falling leaves, harvest bonus), winter (snow, half food). Buttons pin time, season and weather (clear, cloudy, rain, storm, snow, fog), and toggle theme and sound. |
+| Mobile | Tap to select an animal, then tap the ground to move or a raider to attack. Long-press a card for its explanation. The menu button reveals the environment controls. |
 
 ## Deploying on Vercel
 

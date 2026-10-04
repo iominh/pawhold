@@ -113,14 +113,16 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .sheet .btn{align-self:flex-start;padding:7px 18px;font-size:17px}
 
 html,body{overscroll-behavior:none}
-#tip{position:fixed;z-index:30;max-width:290px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.35;box-shadow:0 6px 22px rgba(0,0,0,.28);pointer-events:none;display:none;flex-direction:column;gap:5px}
+.ctrls{flex-wrap:wrap}
+#tip{position:fixed;z-index:30;width:340px;max-width:calc(100vw - 16px);background:var(--panel);color:var(--text);border:2px solid var(--line);border-radius:10px;padding:14px 16px;font-size:16px;line-height:1.5;box-shadow:0 10px 32px rgba(0,0,0,.4);pointer-events:none;display:none;flex-direction:column;gap:9px}
 #tip.on{display:flex}
-#tip b{font-family:var(--display);font-weight:400;font-size:19px;color:var(--head);line-height:1}
-#tip .role{font-style:normal;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--moss)}
-#tip p{margin:0}
-#tip .help strong{color:var(--head)}
-#tip .tipx{color:var(--muted);font-style:italic}
-#tip .st{display:flex;flex-wrap:wrap;gap:4px 10px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;border-top:1px solid var(--line);padding-top:5px}
+#tip b{font-family:var(--display);font-weight:400;font-size:26px;color:var(--head);line-height:1.05}
+#tip .role{font-style:normal;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--moss);margin-top:-5px}
+#tip p{margin:0;color:var(--text)}
+#tip .help{background:var(--panel2);border-left:4px solid var(--gold);border-radius:4px;padding:7px 10px}
+#tip .help strong{display:block;color:var(--head);font-size:13px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
+#tip .tipx{color:var(--text);opacity:.8;font-style:italic;font-size:14px}
+#tip .st{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--text);font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;border-top:1px solid var(--line);padding-top:8px}
 #tip .lockn{color:var(--danger);font-weight:700}
 #info .role{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--moss);margin-top:-6px}
 #info .hpbar.xp{height:5px}
@@ -135,6 +137,39 @@ html,body{overscroll-behavior:none}
   .card{width:108px}
   .agebox .nm{font-size:17px}
 }
+button{touch-action:manipulation}
+html{-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+body{-webkit-user-select:none;user-select:none}
+#btnMenu{display:none}
+@media (max-width:640px),(max-height:520px){
+  html,body{font-size:14px}
+  .hud{padding:calc(6px + env(safe-area-inset-top,0px)) 8px 0;gap:4px}
+  .chip{padding:3px 7px;gap:5px;font-size:13px}
+  .chip b{min-width:0}
+  .agebox .nm{font-size:16px}
+  .agebox .btn,.wavebox .btn{padding:2px 7px;font-size:13px}
+  #btnMenu{display:inline-block}
+  #envCtrls{display:none}
+  .hud.menu #envCtrls{display:flex}
+  .ctrls{gap:4px;padding:3px 4px}
+  .ctrls .btn{padding:3px 8px}
+  #dock{padding:4px 8px calc(6px + env(safe-area-inset-bottom,0px));gap:3px}
+  .tab{padding:2px 10px}
+  .card{width:96px;padding:4px 6px 5px;gap:1px}
+  .card .ic,.card .ic svg{height:30px}
+  .card .nm{font-size:12.5px}
+  .card .cs{font-size:11.5px;gap:4px}
+  #info{top:auto;bottom:calc(var(--dockh,140px) + 6px);left:8px;right:8px;width:auto;max-height:42vh;padding:8px}
+  #info h3{font-size:19px}
+  #tip{width:calc(100vw - 16px);padding:10px 12px;font-size:14px;gap:6px}
+  #tip b{font-size:21px}
+  #tip .tipx,#tip .st{font-size:12.5px}
+  #toast{max-width:calc(100vw - 24px)}
+}
+@media (max-height:520px){
+  #info{top:calc(54px + env(safe-area-inset-top,0px));bottom:auto;left:auto;right:8px;width:230px;max-height:calc(100vh - var(--dockh,120px) - 64px)}
+}
+
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
 </style>
 
@@ -154,13 +189,16 @@ html,body{overscroll-behavior:none}
   <div class="chip ctrls">
     <button class="btn" id="btnPause" aria-label="Pause">Pause</button>
     <button class="btn" id="btnSpeed" aria-label="Game speed">1x</button>
+    <button class="btn" id="btnMenu" aria-label="More controls" aria-expanded="false">&#9776;</button>
     <button class="btn" id="btnRotL" aria-label="Rotate left">&#8634;</button>
     <button class="btn" id="btnRotR" aria-label="Rotate right">&#8635;</button>
     <button class="btn" id="btnArmy" aria-label="Select all defenders">Army</button>
   </div>
-  <div class="chip ctrls">
+  <div class="chip ctrls" id="envCtrls">
     <button class="btn" id="btnTheme" aria-label="Theme">Theme: Auto</button>
     <button class="btn" id="btnWeather" aria-label="Weather">Weather: Clear</button>
+    <button class="btn" id="btnTime" aria-label="Time of day">Time: Morning</button>
+    <button class="btn" id="btnSeason" aria-label="Season">Season: Spring</button>
     <button class="btn" id="btnSound" aria-label="Sound">Sound: On</button>
   </div>
 </div>
@@ -195,7 +233,7 @@ html,body{overscroll-behavior:none}
       <li>Click an animal to select it (shift-drag boxes several, or press Army). Right-click to move, attack or send settlers to work. Defenders level up from kills and learn an ability at level 3.</li>
       <li>Hurt animals heal near the Great Hall and Healing Huts. Idle settlers repair damaged buildings once a raid is over.</li>
       <li>Walls and towers hold raiders where your archers can reach them. Raids grow every minute or so.</li>
-      <li>The valley follows your light or dark theme, with rain, storms, snow and fog rolling through. Use the Theme and Weather buttons to choose your own.</li>
+      <li>Days run from sunrise to sunset to night, and the year turns from spring through summer, autumn and winter, with rain, storms, snow and fog to match. Seasons change your harvest. Use the Time, Season, Weather and Theme buttons to pick your own.</li>
       <li>Survive 15 raids to complete the chronicle.</li>
     </ul>
     <button class="btn go" id="startBtn">Begin the chronicle</button>

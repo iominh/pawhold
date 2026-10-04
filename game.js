@@ -53,7 +53,7 @@ const SMITH_COST = [{ gold: 80, stone: 40 }, { gold: 160, stone: 90 }, { gold: 3
 /* ===================== renderer, scene, light ===================== */
 const stageEl = document.getElementById('stage');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio || 1, 1.75), 2.5));  // supersample on low-dpi screens to smooth jagged voxel edges
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 stageEl.appendChild(renderer.domElement);
@@ -66,14 +66,15 @@ const sun = new THREE.DirectionalLight(AGES[0].sun, AGES[0].sunI);
 sun.position.set(KX + 26, 46, KZ + 18);
 sun.target.position.set(KX, 0, KZ);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 140 });
-sun.shadow.bias = -0.0006;
+sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 140 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
 scene.add(hemi, sun, sun.target);
 
 function resize() {
   const w = stageEl.clientWidth || window.innerWidth, h = stageEl.clientHeight || window.innerHeight;
   renderer.setSize(w, h, false);
+  { const dk = document.getElementById('dock'); if (dk) document.documentElement.style.setProperty('--dockh', dk.offsetHeight + 'px'); }
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
@@ -84,6 +85,7 @@ if (window.ResizeObserver) new ResizeObserver(resize).observe(stageEl);
 let seed = 0, kind = [], topY = [], occ = [], nodeAt = [];
 let terrain = null, terrainBase = [];
 const nodes = [];
+const leafMats = [0x5cc04a, 0x6fcf57, 0x4fb243].map(c => new THREE.MeshLambertMaterial({ color: c }));
 function hash(x, z) { const n = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return n - Math.floor(n); }
 function vnoise(x, z) {
   const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi;
@@ -100,11 +102,11 @@ function addNode(type, i, j, amt) {
   g.rotation.y = rnd(0, 6.28);
   let max = 30;
   if (type === 'wood') {
-    const t1 = pick([0x3f8a3c, 0x4a9a45, 0x367a38]);
+    const lm = { mat: pick(leafMats) };
     box(g, -0.07, 0, -0.07, 0.14, 0.35, 0.14, 0x6b4a2f);
-    box(g, -0.34, 0.3, -0.34, 0.68, 0.22, 0.68, t1);
-    box(g, -0.25, 0.5, -0.25, 0.5, 0.22, 0.5, t1);
-    box(g, -0.14, 0.7, -0.14, 0.28, 0.2, 0.28, t1);
+    box(g, -0.34, 0.3, -0.34, 0.68, 0.22, 0.68, 0, lm);
+    box(g, -0.25, 0.5, -0.25, 0.5, 0.22, 0.5, 0, lm);
+    box(g, -0.14, 0.7, -0.14, 0.28, 0.2, 0.28, 0, lm);
     g.scale.y = rnd(0.85, 1.3);
   } else if (type === 'stone') {
     max = 60;
@@ -945,7 +947,7 @@ function validSpot(x, z) {
   return [KX, KZ + 2.4];
 }
 function unstick(u) {
-  u.path = null; u.stuckT = 0; u.repathT = 0; u.nudges = (u.nudges || 0) + 1;
+  u.path = null; u.stuckT = 0; u.repathT = 0; u.noLos = G.t + 2; u.nudges = (u.nudges || 0) + 1;
   const sp = validSpot(u.x + rnd(-1.2, 1.2), u.z + rnd(-1.2, 1.2));
   u.x = sp[0]; u.z = sp[1];
   if (u.role === 'worker' && u.nudges >= 2) { if (u.node) { u.badNode = u.node; u.badUntil = G.t + 30; } releaseWorker(u); u.state = 'idle'; u.wait = 0.5; u.nudges = 0; }
@@ -955,7 +957,7 @@ function watchdog(u, dt) {
   if (u.mv === undefined || G.t - u.mv > 0.3) { u.wdT = 0; return; }
   if (!u.wdT) { u.wdT = 0.0001; u.wdX = u.x; u.wdZ = u.z; return; }
   u.wdT += dt;
-  if (u.wdT >= 2.5) {
+  if (u.wdT >= 1.5) {
     const moved = Math.hypot(u.x - u.wdX, u.z - u.wdZ);
     u.wdT = 0;
     if (moved < 0.25) unstick(u); else u.nudges = 0;
@@ -1017,6 +1019,12 @@ function stepToward(u, tx, tz, dt, ignoreB) {
     const bl = blockedAt(nx, nz, u.team, ignoreB);
     if (!bl) { u.x = nx; u.z = nz; u.face = aa; u.moved = true; return { d, blocked: direct, moved: true }; }
     if (k === 0) direct = bl;
+  }
+  // slide along an axis when the diagonal is pinched between tiles
+  const sx = Math.sign(dx) * sp, sz = Math.sign(dz) * sp;
+  const opts = Math.abs(dx) > Math.abs(dz) ? [[sx, 0], [0, sz]] : [[0, sz], [sx, 0]];
+  for (const [mx, mz] of opts) {
+    if ((mx || mz) && !blockedAt(u.x + mx, u.z + mz, u.team, ignoreB)) { u.x += mx; u.z += mz; u.face = Math.atan2(mx, mz); u.moved = true; return { d, blocked: direct, moved: true }; }
   }
   return { d, blocked: direct, moved: false };
 }
@@ -1107,22 +1115,24 @@ function findPath(team, sx, sz, tx, tz, ignoreB) {
   return out;
 }
 function losClear(team, x0, z0, x1, z1, ignoreB) {
-  const n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 0.3);
-  for (let k = 1; k < n; k++) {
-    const t = k / n;
-    if (blockedAt(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, team, ignoreB)) return false;
+  const len = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(len / 0.25);
+  const px = len > 0 ? -(z1 - z0) / len * 0.27 : 0, pz = len > 0 ? (x1 - x0) / len * 0.27 : 0;
+  for (let k = 1; k <= n; k++) {
+    const t = k / n, x = x0 + (x1 - x0) * t, z = z0 + (z1 - z0) * t;
+    if (blockedAt(x, z, team, ignoreB) || blockedAt(x + px, z + pz, team, ignoreB) || blockedAt(x - px, z - pz, team, ignoreB)) return false;
   }
   return true;
 }
 // Walk toward (tx,tz) by the best route. Returns like stepToward, plus `breach` when a raider reaches a wall or building on its route.
 function moveTo(u, tx, tz, dt, ignoreB) {
-  u.mv = G.t;
   const d = Math.hypot(tx - u.x, tz - u.z);
+  if (d < 1.2) u.mvNear = G.t; else u.mv = G.t;
   if (d < 0.001) return { d, blocked: false, moved: false };
-  if (d < 1.5 || losClear(u.team, u.x, u.z, tx, tz, ignoreB)) {
+  if (d < 0.6 || (G.t > (u.noLos || 0) && losClear(u.team, u.x, u.z, tx, tz, ignoreB))) {
     u.path = null;
     const r = stepToward(u, tx, tz, dt, ignoreB);
     u.stuckT = r.moved ? 0 : (u.stuckT || 0) + dt;
+    if (d >= 0.6 && u.stuckT > 0.4) { u.noLos = G.t + 2; u.stuckT = 0.7; u.repathT = 0; }
     return r;
   }
   const key = Math.round(tx) + ',' + Math.round(tz);
@@ -1225,14 +1235,15 @@ function updateWorker(u, dt) {
   if (scare) { if (u.state !== 'flee') { releaseWorker(u); u.state = 'flee'; } u.fleeT = 2.5; }
   if (u.state === 'flee') {
     u.fleeT -= dt;
-    moveTo(u, KX, KZ + 2.4, dt * 1.25);
+    { const fx = KX + ((u.slot % 7) - 3) * 0.75, fz = KZ + 2.7 + (Math.floor(u.slot / 7) % 3) * 0.75;
+      if (Math.hypot(fx - u.x, fz - u.z) > 0.9) moveTo(u, fx, fz, dt * 1.25); }
     if (u.fleeT <= 0 && !scare) u.state = 'idle';
     return;
   }
   switch (u.state) {
     case 'idle':
       u.wait -= dt;
-      if (u.wait > 0) { if (u.wp && Math.hypot(u.wp[0] - u.x, u.wp[1] - u.z) > 0.3 && (u.stuckT || 0) < 1.2) moveTo(u, u.wp[0], u.wp[1], dt * 0.6); break; }
+      if (u.wait > 0) { if (u.wp && Math.hypot(u.wp[0] - u.x, u.wp[1] - u.z) > 0.6 && (u.stuckT || 0) < 1.2) moveTo(u, u.wp[0], u.wp[1], dt * 0.6); break; }
       u.wait = 0.4; u.wp = null;
       if (u.carry > 0) { u.state = 'toDrop'; break; }
       { const s = findSite(u); if (s) { s.builders++; u.site = s; u.state = 'toSite'; break; } }
@@ -1381,7 +1392,7 @@ function updateSoldier(u, dt) {
   }
   if (u.hold || u.giveUp > G.t) return;
   const sp = u.home || validSpot(...rallyPos(u.slot));
-  if (Math.hypot(sp[0] - u.x, sp[1] - u.z) > 0.6) {
+  if (Math.hypot(sp[0] - u.x, sp[1] - u.z) > 1.0) {
     const r = moveTo(u, sp[0], sp[1], dt);
     if (r.unreachable || (u.stuckT || 0) > 1.5) { u.giveUp = G.t + 4; u.stuckT = 0; if (u.home) u.home = null; }
   }
@@ -1540,7 +1551,7 @@ function step(dt) {
   G.popCap = BDEF.keep.pop + buildings.reduce((s, b) => s + (b.done && b.def.pop && b.type !== 'keep' ? b.def.pop : 0), 0);
   for (const b of buildings) {
     if (!b.done) continue;
-    if (b.def.income) for (const k in b.def.income) G.res[k] += b.def.income[k] * dt;
+    if (b.def.income) for (const k in b.def.income) G.res[k] += b.def.income[k] * dt * (k === 'food' ? seasonFood() : 1);
     if (b.def.range) updateTower(b, dt);
   }
   // new settlers
@@ -1618,7 +1629,7 @@ function newGame() {
 const ENV = {
   dark: false, mode: 'auto', night: 0, wType: 'clear', wAuto: true, wTimer: 50,
   w: { cloud: 0.1, rain: 0, snow: 0, fog: 0, storm: 0 },
-  flash: 0, nextBolt: 5, cover: 0, wet: 0, colSig: '', paintT: 0, wind: 0.3, sky: new THREE.Color(AGES[0].sky), cloudVis: 1
+  tod: 0.3, todMode: 'auto', todPin: 0.5, sCur: 0, sMode: 'auto', sPin: 0, sw: [1, 0, 0, 0], season: 0, seasonSeen: -1, elev: 1, tw: 0, flash: 0, nextBolt: 5, cover: 0, wet: 0, colSig: '', paintT: 0, wind: 0.3, sky: new THREE.Color(AGES[0].sky), cloudVis: 1
 };
 const WEATHER = {
   clear:  { cloud: 0.1, rain: 0, snow: 0, fog: 0, storm: 0, label: 'Clear' },
@@ -1628,7 +1639,22 @@ const WEATHER = {
   snow:   { cloud: 0.7, rain: 0, snow: 0.85, fog: 0, storm: 0, label: 'Snow' },
   fog:    { cloud: 0.5, rain: 0, snow: 0, fog: 1, storm: 0, label: 'Fog' }
 };
-const AUTO_WX = ['clear', 'clear', 'cloudy', 'rain', 'rain', 'fog', 'snow', 'storm'];
+const AUTO_BY_SEASON = [
+  ['clear', 'clear', 'cloudy', 'rain', 'rain', 'fog'],
+  ['clear', 'clear', 'clear', 'clear', 'cloudy', 'storm', 'rain'],
+  ['cloudy', 'cloudy', 'rain', 'rain', 'fog', 'clear', 'storm'],
+  ['snow', 'snow', 'snow', 'cloudy', 'fog', 'clear']
+];
+const SEASON_SEC = 150, DAY_SEC = 300;
+const SEASONS = [
+  { name: 'Spring', leaf: [0x5cc04a, 0x6fcf57, 0x4fb243], grass: [0x8fe66a, 0.28], food: 1.0, blurb: 'Spring: rain waters the valley and blossom drifts by.' },
+  { name: 'Summer', leaf: [0x3f8a3c, 0x4a9a45, 0x367a38], grass: [0xb4d94a, 0.18], food: 1.1, blurb: 'Summer: long sunny days. Berry farms yield 10% more food.' },
+  { name: 'Autumn', leaf: [0xdb7f2a, 0xc4532b, 0xe3a936], grass: [0xb59a45, 0.5], food: 1.3, blurb: 'Autumn: harvest time. Berry farms yield 30% more food, and leaves fall.' },
+  { name: 'Winter', leaf: [0x56705a, 0x4f6a58, 0x5d7a64], grass: [0xc3cfc6, 0.55], food: 0.5, blurb: 'Winter: snow settles on the valley and berry farms yield half the food.' }
+];
+const SEASON_COL = SEASONS.map(x => ({ leaf: x.leaf.map(h => new THREE.Color(h)), grass: new THREE.Color(x.grass[0]), amt: x.grass[1] }));
+const seasonFood = () => SEASONS.reduce((a, x, i) => a + ENV.sw[i] * x.food, 0);
+const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const WX_CYCLE = ['auto', 'clear', 'cloudy', 'rain', 'storm', 'snow', 'fog'];
 const envEl = id => document.getElementById(id);
 
@@ -1651,6 +1677,32 @@ envEl('btnTheme').addEventListener('click', () => {
 });
 function refreshWeatherButton() {
   envEl('btnWeather').textContent = 'Weather: ' + WEATHER[ENV.wType].label + (ENV.wAuto ? ' (auto)' : '');
+}
+const TIME_MODES = [['auto', null], ['dawn', 0.25], ['day', 0.5], ['dusk', 0.75], ['night', 0.0]];
+envEl('btnTime').addEventListener('click', () => {
+  const i = TIME_MODES.findIndex(m => m[0] === ENV.todMode), nx = TIME_MODES[(i + 1) % TIME_MODES.length];
+  ENV.todMode = nx[0]; if (nx[1] !== null) ENV.todPin = nx[1];
+  envLabelSig = ''; sfx('click');
+});
+envEl('btnSeason').addEventListener('click', () => {
+  if (ENV.sMode === 'auto') { ENV.sMode = 'pin'; ENV.sPin = Math.floor(ENV.sCur) % 4; }
+  else if (ENV.sPin === 3) ENV.sMode = 'auto';
+  else ENV.sPin++;
+  envLabelSig = ''; sfx('click');
+});
+let envLabelSig = '';
+function timeLabel() {
+  const h = ENV.tod * 24, hh = Math.floor(h), mm = Math.floor((h - hh) * 60), n = ENV.night, e = ENV.elev, am = ENV.tod < 0.5;
+  const clock = (hh % 12 || 12) + ':' + String(mm).padStart(2, '0') + (hh >= 12 ? 'pm' : 'am');
+  const nm = n > 0.85 ? 'Night' : ENV.tw > 0.35 ? (am ? 'Sunrise' : 'Sunset') : n > 0.3 ? (am ? 'Dawn' : 'Dusk') : e > 0.8 ? 'Midday' : am ? 'Morning' : 'Afternoon';
+  return nm + ' ' + clock;
+}
+function refreshEnvLabels() {
+  const t = 'Time: ' + timeLabel() + (ENV.todMode === 'auto' ? '' : ' (set)'), se = 'Season: ' + SEASONS[ENV.season].name + (ENV.sMode === 'auto' ? '' : ' (set)');
+  const sig = t + se;
+  if (sig === envLabelSig) return;
+  envLabelSig = sig;
+  envEl('btnTime').textContent = t; envEl('btnSeason').textContent = se;
 }
 envEl('btnWeather').addEventListener('click', () => {
   const cur = ENV.wAuto ? 'auto' : ENV.wType;
@@ -1694,13 +1746,39 @@ const snowMesh = new THREE.InstancedMesh(unitGeo, new THREE.MeshBasicMaterial({ 
 rainMesh.frustumCulled = snowMesh.frustumCulled = false;
 rainMesh.count = snowMesh.count = 0;
 scene.add(rainMesh, snowMesh);
+const L_N = 260, lp = new Float32Array(L_N * 3);
+const leafMesh = new THREE.InstancedMesh(unitGeo, new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x442211 }), L_N);
+leafMesh.frustumCulled = false; leafMesh.count = 0;
+const LEAF_AUT = [0xdb7f2a, 0xc4532b, 0xe3a936, 0xa8442a].map(h => new THREE.Color(h)), LEAF_SPR = [0xffc6dc, 0xffe3ec, 0xf7a8c8].map(h => new THREE.Color(h));
+for (let i = 0; i < L_N; i++) { leafMesh.setColorAt(i, LEAF_AUT[i % 4]); lp[i * 3] = KX + rnd(-WR, WR); lp[i * 3 + 1] = rnd(0, 12); lp[i * 3 + 2] = KZ + rnd(-WR, WR); }
+scene.add(leafMesh);
 const rp = new Float32Array(R_N * 3), sp = new Float32Array(S_N * 3);
 for (let i = 0; i < R_N; i++) { rp[i * 3] = KX + rnd(-WR, WR); rp[i * 3 + 1] = rnd(0, WH); rp[i * 3 + 2] = KZ + rnd(-WR, WR); }
 for (let i = 0; i < S_N; i++) { sp[i * 3] = KX + rnd(-WR, WR); sp[i * 3 + 1] = rnd(0, WH); sp[i * 3 + 2] = KZ + rnd(-WR, WR); }
 const dum = new THREE.Object3D();
 function wrapAround(v, c) { return v < c - WR ? v + 2 * WR : v > c + WR ? v - 2 * WR : v; }
+function updateLeaves(dt, t, cx, cz) {
+  const w = ENV.w, aut = ENV.sw[2], spr = ENV.sw[0];
+  const lw = clamp(aut + spr * 0.35, 0, 1) * clamp(1 - w.rain * 0.8 - w.snow, 0, 1);
+  const n = Math.floor(L_N * lw);
+  leafMesh.count = n;
+  if (!n) return;
+  const pal = aut >= spr ? LEAF_AUT : LEAF_SPR;
+  let recol = false;
+  for (let i = 0; i < n; i++) {
+    let x = lp[i * 3] + (Math.sin(t * 0.0012 + i) * 0.9 + ENV.wind * 2.4) * dt, y = lp[i * 3 + 1] - (0.8 + (i % 4) * 0.18) * dt, z = lp[i * 3 + 2] + Math.cos(t * 0.001 + i * 1.7) * 0.6 * dt;
+    if (y < 0) { y += 12; x = cx + rnd(-WR, WR); z = cz + rnd(-WR, WR); leafMesh.setColorAt(i, pal[i % pal.length]); recol = true; }
+    x = wrapAround(x, cx); z = wrapAround(z, cz);
+    lp[i * 3] = x; lp[i * 3 + 1] = y; lp[i * 3 + 2] = z;
+    dum.rotation.set(t * 0.002 + i, i * 0.7 + t * 0.0015, 0); dum.scale.set(0.14, 0.04, 0.14);
+    dum.position.set(x, y, z); dum.updateMatrix(); leafMesh.setMatrixAt(i, dum.matrix);
+  }
+  leafMesh.instanceMatrix.needsUpdate = true;
+  if (recol && leafMesh.instanceColor) leafMesh.instanceColor.needsUpdate = true;
+}
 function updateParticles(dt, t, cx, cz) {
   const w = ENV.w;
+  updateLeaves(dt, t, cx, cz);
   const rn = Math.floor(R_N * clamp(w.rain * 1.05, 0, 1));
   rainMesh.count = rn;
   if (rn > 0) {
@@ -1754,18 +1832,22 @@ const C_GREY_DAY = new THREE.Color(0x93a1ad), C_GREY_NIGHT = new THREE.Color(0x1
 const C_SNOW_DAY = new THREE.Color(0xe3eaf1), C_SNOW_NIGHT = new THREE.Color(0x3b4655);
 const C_FOG_DAY = new THREE.Color(0xd0d6da), C_FOG_NIGHT = new THREE.Color(0x242b34);
 const C_NIGHT = new THREE.Color(0x0b1430), C_STORM = new THREE.Color(0x5c6570), C_CLOUD_NIGHT = new THREE.Color(0x3a4558);
-const C_SUN = new THREE.Color(), C_MOON = new THREE.Color(0x9fb4ff);
+const C_SUN = new THREE.Color(), C_MOON = new THREE.Color(0x9fb4ff), C_SUNRISE = new THREE.Color(0xf6a98c), C_SUNSET = new THREE.Color(0xf0803f), C_DAWN = new THREE.Color(0xff9a52);
 const cA = new THREE.Color(), cB = new THREE.Color();
+const ICE = new THREE.Color(0xcfe9f2), tintC = new THREE.Color();
+let tintAmt = 0;
 function paintTerrain() {
   if (!terrain || !terrainBase.length || !terrain.instanceColor) return;
-  const k = Math.round(ENV.cover * 50) + ':' + Math.round(ENV.wet * 30);
+  const k = Math.round(ENV.cover * 50) + ':' + Math.round(ENV.wet * 30) + ':' + Math.round(tintAmt * 40) + tintC.getHexString() + Math.round(ENV.sw[3] * 20);
   if (k === ENV.colSig) return;
   ENV.colSig = k;
   let q = 0;
   for (let i = 0; i < MAP; i++) for (let j = 0; j < MAP; j++) {
     cA.copy(terrainBase[q]);
+    const kd = kind[i][j];
+    if (kd === 'g') cA.lerp(tintC, tintAmt); else if (kd === 'h') cA.lerp(tintC, tintAmt * 0.4); else if (kd === 'p') cA.lerp(ICE, ENV.sw[3] * 0.75);
     if (ENV.wet > 0) cA.multiplyScalar(1 - 0.2 * ENV.wet);
-    cA.lerp(WHITE, ENV.cover * (kind[i][j] === 'p' ? 0.55 : 0.88));
+    cA.lerp(WHITE, ENV.cover * (kd === 'p' ? 0.55 : 0.88));
     terrain.setColorAt(q++, cA);
   }
   terrain.instanceColor.needsUpdate = true;
@@ -1773,25 +1855,55 @@ function paintTerrain() {
 function resetEnv() {
   ENV.cover = 0; ENV.wet = 0; ENV.colSig = ''; ENV.wTimer = 45; ENV.flash = 0;
   if (ENV.wAuto) ENV.wType = 'clear';
+  ENV.tod = 0.3; ENV.sCur = ENV.sMode === 'auto' ? 0 : ENV.sPin; ENV.sw = [0, 0, 0, 0]; ENV.sw[Math.floor(ENV.sCur) % 4] = 1; ENV.season = Math.floor(ENV.sCur) % 4; ENV.seasonSeen = ENV.season; envLabelSig = '';
   refreshWeatherButton();
 }
 
 /* ---- per-frame update ---- */
 const lerpN = (a, b, t) => a + (b - a) * t;
 function updateEnv(dt, now) {
-  const t = now || 0;
+  const t = now || 0, gdt = G.paused ? 0 : dt * G.speed, TAU = Math.PI * 2;
+  // seasons
+  if (ENV.sMode === 'auto') ENV.sCur = (ENV.sCur + gdt / SEASON_SEC) % 4;
+  else { const d = ((ENV.sPin - ENV.sCur + 6) % 4) - 2; ENV.sCur = (ENV.sCur + clamp(d, -dt * 1.2, dt * 1.2) + 4) % 4; }
+  { const si = Math.floor(ENV.sCur) % 4, f = ENV.sCur - Math.floor(ENV.sCur), b2 = sstep(0.72, 1, f);
+    ENV.sw[0] = ENV.sw[1] = ENV.sw[2] = ENV.sw[3] = 0; ENV.sw[si] = 1 - b2; ENV.sw[(si + 1) % 4] = b2;
+    ENV.season = b2 > 0.5 ? (si + 1) % 4 : si; }
+  if (ENV.season !== ENV.seasonSeen) {
+    ENV.seasonSeen = ENV.season;
+    if (G.t > 1) { toast(SEASONS[ENV.season].blurb); sfx('age'); }
+    if (ENV.wAuto) ENV.wTimer = Math.min(ENV.wTimer, 6);
+  }
+  // time of day
+  if (ENV.todMode === 'auto') ENV.tod = (ENV.tod + gdt / DAY_SEC) % 1;
+  else { const dd = (ENV.todPin - ENV.tod + 1) % 1; if (dd > 0.001) ENV.tod = (ENV.tod + Math.min(dd, dt * 0.18)) % 1; }
+  const ang = (ENV.tod - 0.25) * TAU, ax = Math.cos(ang), ay = Math.sin(ang);
+  ENV.elev = ay;
+  ENV.tw = Math.pow(clamp(1 - Math.abs(ay) / 0.32, 0, 1), 1.3);
+  ENV.night = sstep(0.12, -0.28, ay);
+  const n = ENV.night, tw = ENV.tw, sunUp = ay >= -0.02, am = ENV.tod < 0.5;
+  // season colours: trees and grass
+  for (let k = 0; k < 3; k++) {
+    cA.setRGB(0, 0, 0);
+    for (let i = 0; i < 4; i++) if (ENV.sw[i] > 0) { const c = SEASON_COL[i].leaf[k]; cA.r += c.r * ENV.sw[i]; cA.g += c.g * ENV.sw[i]; cA.b += c.b * ENV.sw[i]; }
+    cA.lerp(WHITE, ENV.cover * 0.55);
+    leafMats[k].color.copy(cA);
+  }
+  tintC.setRGB(0, 0, 0); tintAmt = 0;
+  for (let i = 0; i < 4; i++) { const c = SEASON_COL[i].grass; tintC.r += c.r * ENV.sw[i]; tintC.g += c.g * ENV.sw[i]; tintC.b += c.b * ENV.sw[i]; tintAmt += SEASON_COL[i].amt * ENV.sw[i]; }
+
   if (ENV.wAuto) {
     ENV.wTimer -= dt;
-    if (ENV.wTimer <= 0) { ENV.wTimer = rnd(55, 110); ENV.wType = pick(AUTO_WX); refreshWeatherButton(); }
+    if (ENV.wTimer <= 0) { ENV.wTimer = rnd(55, 110); ENV.wType = pick(AUTO_BY_SEASON[ENV.season]); refreshWeatherButton(); }
   }
   const tg = WEATHER[ENV.wType], w = ENV.w, k = Math.min(1, dt * 0.5);
   for (const key of ['cloud', 'rain', 'snow', 'fog', 'storm']) w[key] += (tg[key] - w[key]) * k;
-  ENV.night += ((ENV.dark ? 1 : 0) - ENV.night) * Math.min(1, dt * 1.2);
-  const n = ENV.night;
   ENV.wind = (0.3 + 0.7 * w.storm + 0.25 * w.rain) * (1 + 0.3 * Math.sin(t * 0.0007));
 
-  // sky and fog colour
-  cA.setHex(AGES[G.age].sky).lerp(C_NIGHT, n * 0.92);
+  // sky and fog colour: day blue, orange at sunrise and sunset, deep blue at night
+  cA.setHex(AGES[G.age].sky).lerp(cB.setHex(0xcfdbe6), ENV.sw[3] * 0.25);
+  cA.lerp(am ? C_SUNRISE : C_SUNSET, tw * 0.78 * (1 - w.cloud * 0.4));
+  cA.lerp(C_NIGHT, n * 0.92);
   cB.copy(C_GREY_DAY).lerp(C_GREY_NIGHT, n); cA.lerp(cB, w.cloud * 0.6);
   cA.lerp(C_BLACK, w.storm * 0.3 * (1 - n * 0.5));
   cB.copy(C_SNOW_DAY).lerp(C_SNOW_NIGHT, n); cA.lerp(cB, w.snow * 0.35);
@@ -1802,20 +1914,22 @@ function updateEnv(dt, now) {
   const dense = Math.max(w.fog, w.rain * 0.55, w.snow * 0.45, w.storm * 0.7);
   scene.fog.near = lerpN(60, 12, dense); scene.fog.far = lerpN(130, 55, dense);
 
-  // lights
+  // lights: the sun arcs east to west, the moon takes over below the horizon
   const dim = 1 - 0.5 * w.cloud;
-  C_SUN.setHex(AGES[G.age].sun).lerp(C_MOON, n);
+  const px = sunUp ? ax : -ax, py = sunUp ? ay : -ay;
+  sun.position.set(KX + px * 46, Math.max(11, py * 46), KZ + (sunUp ? 18 : 14));
+  if (sunUp) C_SUN.setHex(AGES[G.age].sun).lerp(C_DAWN, tw * 0.8); else C_SUN.copy(C_MOON);
   sun.color.copy(C_SUN);
-  sun.intensity = lerpN(AGES[G.age].sunI * dim, 0.34 * dim, n) + ENV.flash * 0.6;
+  sun.intensity = (sunUp ? AGES[G.age].sunI * dim * sstep(-0.02, 0.3, ay) : 0.34 * dim * sstep(0.02, 0.3, -ay)) + ENV.flash * 0.6;
   hemi.intensity = lerpN(0.72 * (1 - 0.25 * w.cloud), 0.42, n) + ENV.flash * 1.4;
-  hemi.color.setHex(0xffffff).lerp(cB.setHex(0x8fa0d8), n);
+  hemi.color.setHex(0xffffff).lerp(cB.setHex(0xffd1a8), tw * 0.45).lerp(cB.setHex(0x8fa0d8), n);
   hemi.groundColor.setHex(0x6b8f5a).lerp(cB.setHex(0x2a3a4a), n);
 
-  // sun and moon
+  // sun and moon discs, stars
   sunMesh.visible = w.cloud < 0.85;
   sunMesh.position.set(KX + (sun.position.x - KX) * 2.2, sun.position.y * 2.2, KZ + (sun.position.z - KZ) * 2.2);
-  sunMesh.scale.setScalar(lerpN(7, 5, n));
-  sunMesh.material.color.setHex(0xfff2b0).lerp(cB.setHex(0xe8eeff), n);
+  sunMesh.scale.setScalar(lerpN(7, 5, n) * (1 + tw * 0.35));
+  if (sunUp) sunMesh.material.color.setHex(0xfff2b0).lerp(cB.setHex(0xff7a30), tw * 0.85); else sunMesh.material.color.setHex(0xe8eeff);
   stars.material.opacity = n * (1 - w.cloud) * 0.9;
   stars.visible = stars.material.opacity > 0.02;
 
@@ -1842,12 +1956,14 @@ function updateEnv(dt, now) {
   for (let i = bolts.length - 1; i >= 0; i--) { bolts[i].life -= dt; if (bolts[i].life <= 0) { scene.remove(bolts[i].g); bolts.splice(i, 1); } }
 
   // ground: snow settles, rain darkens
-  ENV.cover = clamp(ENV.cover + (w.snow > 0.35 ? w.snow * 0.03 : -0.012) * dt, 0, 1);
+  { const floor = ENV.sw[3] * 0.5;
+    ENV.cover = clamp(ENV.cover + (w.snow > 0.35 ? w.snow * 0.03 : ENV.cover > floor ? -0.012 : 0.01) * dt, 0, 1); }
   ENV.wet += (Math.max(w.rain, w.storm) - ENV.wet) * Math.min(1, dt * 0.3);
   ENV.paintT -= dt;
   if (ENV.paintT <= 0) { ENV.paintT = 0.35; paintTerrain(); }
 
   updateParticles(dt, t, cam.tx, cam.tz);
+  ENV.labT = (ENV.labT || 0) - dt; if (ENV.labT <= 0) { ENV.labT = 0.4; refreshEnvLabels(); }
 }
 detectTheme();
 refreshWeatherButton();
@@ -2039,7 +2155,7 @@ function audioUpdate(dt) {
   AUD.rain.g.gain.setTargetAtTime(0.16 * w.rain, t, 0.5);
   AUD.cricket.gain.setTargetAtTime(0.012 * n * (1 - w.rain) * (1 - w.snow), t, 1);
   AUD.nextBird -= dt;
-  if (AUD.nextBird <= 0) { AUD.nextBird = rnd(2.5, 7); if (n < 0.4 && w.rain < 0.2 && w.storm < 0.2 && !G.paused) birdChirp(); }
+  if (AUD.nextBird <= 0) { AUD.nextBird = rnd(2.5, 7); if (n < 0.4 && w.rain < 0.2 && w.storm < 0.2 && !G.paused && Math.random() > ENV.sw[3] * 0.85) birdChirp(); }
   musicTick();
 }
 
@@ -2138,9 +2254,10 @@ function renderDock() {
     const showCard = () => {
       const d = it.def, r = el.getBoundingClientRect(), locked = d.age !== undefined && G.age < d.age ? `Unlocks in the ${AGES[d.age].name}` : '';
       const html = it.kindOf === 'u' ? tipUnitDef(d) : it.kindOf === 'x' ? `<b>${d.name}</b><i class="role">${d.role}</i><p>${d.what}</p><p class="help"><strong>How it helps:</strong> ${d.help}</p><p class="tipx">${d.tip}</p>${locked ? `<p class="lockn">${locked}</p>` : ''}` : tipBuilding(d, '', locked);
-      showTip(html, r.left, r.top, true);
+      showTip(html, r.left, r.top - (document.documentElement.clientWidth <= 640 ? 0 : 0), true);
     };
-    el.addEventListener('mouseenter', showCard); el.addEventListener('focus', showCard);
+    const hoverCard = () => { if (window.matchMedia && matchMedia('(hover: none)').matches) return; showCard(); };
+    el.addEventListener('mouseenter', hoverCard); el.addEventListener('focus', hoverCard);
     el.addEventListener('mouseleave', hideTip); el.addEventListener('blur', hideTip);
     el.addEventListener('contextmenu', e => { e.preventDefault(); showCard(); tipHold = 3.5; });
     box2.appendChild(el);
@@ -2217,7 +2334,7 @@ function bDescribe(b) {
   if (!b.done) return `Under construction: ${Math.floor(b.progress * 100)}%`;
   if (d.range) return `Range ${d.range} tiles. Damage ${Math.round(d.dmg * (1 + 0.3 * G.age) * dmgMult())}${d.splash ? ' (area)' : ''}.`;
   if (d.pop && b.type === 'house') return 'Houses 3 animals.';
-  if (d.income) return Object.keys(d.income).map(k => `Makes ${d.income[k]} ${k} per second.`).join(' ');
+  if (d.income) return Object.keys(d.income).map(k => `Makes ${(d.income[k] * (k === 'food' ? seasonFood() : 1)).toFixed(2)} ${k} per second${k === 'food' ? ' (' + SEASONS[ENV.season].name + ')' : ''}.`).join(' ');
   if (b.type === 'keep') return `Lose this and the clan is gone. Housing: ${G.popCap}.`;
   if (d.heal) return `Heals animals and buildings within ${d.heal} tiles.`;
   return '';
@@ -2309,10 +2426,12 @@ function updateUnitInfo(el, us) {
   row.appendChild(sumBtn('Deselect', () => { G.selU = []; G.cmd = null; }));
 }
 function castAbilities() { let n = 0; for (const u of G.selU) if (useAbility(u)) n++; if (!n) toast('No ability ready or no raiders in reach', true); }
+let hintedMove = false;
 function selectUnits(list, add) {
   G.sel = null; G.build = null; ghost.visible = false;
   if (add) { for (const u of list) if (!G.selU.includes(u)) G.selU.push(u); } else G.selU = list.slice();
   G.cmd = null; infoSig = ''; sfx('click'); updateDock(true);
+  if (!hintedMove) { hintedMove = true; toast('Right-click to move or attack. On touch, tap the ground to move and tap a raider to attack.'); }
 }
 
 /* ===================== placement ghost ===================== */
@@ -2404,6 +2523,7 @@ function contextOrder(cx, cy) {
   else orderMove(us, p.x, p.z, G.cmd === 'amove');
 }
 function leftClick(cx, cy, e) {
+  const touch = e.pointerType === 'touch' || e.pointerType === 'pen';
   const mine = unitAtScreen(units, cx, cy, 26);
   if (mine) {
     const now = performance.now();
@@ -2412,6 +2532,11 @@ function leftClick(cx, cy, e) {
     else selectUnits([mine], e.shiftKey);
     lastClick = { t: now, u: mine };
     return;
+  }
+  if (touch && G.selU.length && !G.cmd) {
+    const t0 = tileAt(cx, cy), b0 = t0 && inMap(t0[0], t0[1]) ? occ[t0[0]][t0[1]] : null;
+    if (b0 && b0.done && b0.hp >= b0.maxhp) { G.selU = []; G.sel = b0; infoSig = ''; sfx('click'); return; }
+    contextOrder(cx, cy); return;
   }
   if (G.selU.length && G.cmd) { const p = groundPoint(cx, cy); if (p) { const us = G.selU; orderMove(us, p.x, p.z, G.cmd === 'amove'); G.cmd = null; infoSig = ''; } return; }
   const foe = G.selU.length && unitAtScreen(enemies, cx, cy, 26);
@@ -2568,6 +2693,7 @@ $('againBtn').addEventListener('click', () => {
   renderDock(); updateDock(true); ghost.visible = false;
 });
 $('btnArmy').addEventListener('click', () => { const army = units.filter(u => !u.dead && u.role !== 'worker'); if (!army.length) return toast('No defenders yet. Build a Barracks and train some', true); selectUnits(army, false); });
+$('btnMenu').addEventListener('click', () => { const hd = document.querySelector('.hud'); hd.classList.toggle('menu'); $('btnMenu').setAttribute('aria-expanded', hd.classList.contains('menu')); sfx('click'); });
 $('btnPause').addEventListener('click', () => { if (!G.over && !$('intro').classList.contains('on')) G.paused = !G.paused; });
 $('btnSpeed').addEventListener('click', () => { G.speed = G.speed >= 3 ? 1 : G.speed + 1; });
 $('btnRotL').addEventListener('click', () => { cam.yaw -= 0.5; });
@@ -2615,6 +2741,7 @@ function updateSelRings() {
     if (k >= us.length) { if (r) r.visible = false; continue; }
     if (!r) { r = selRings[k] = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.42, 20), new THREE.MeshBasicMaterial({ color: 0xf0b94a, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false })); r.rotation.x = -Math.PI / 2; scene.add(r); }
     const u = us[k];
+    if (!u.dead && !u.bar) showBar(u);
     r.visible = !u.dead; r.position.set(u.x, u.y + 0.06, u.z);
   }
   canvasEl.style.cursor = G.cmd ? 'crosshair' : '';

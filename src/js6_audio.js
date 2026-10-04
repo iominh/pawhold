@@ -185,6 +185,6 @@ function audioUpdate(dt) {
   AUD.rain.g.gain.setTargetAtTime(0.16 * w.rain, t, 0.5);
   AUD.cricket.gain.setTargetAtTime(0.012 * n * (1 - w.rain) * (1 - w.snow), t, 1);
   AUD.nextBird -= dt;
-  if (AUD.nextBird <= 0) { AUD.nextBird = rnd(2.5, 7); if (n < 0.4 && w.rain < 0.2 && w.storm < 0.2 && !G.paused) birdChirp(); }
+  if (AUD.nextBird <= 0) { AUD.nextBird = rnd(2.5, 7); if (n < 0.4 && w.rain < 0.2 && w.storm < 0.2 && !G.paused && Math.random() > ENV.sw[3] * 0.85) birdChirp(); }
   musicTick();
 }

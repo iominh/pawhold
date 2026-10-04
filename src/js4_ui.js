@@ -93,9 +93,10 @@ function renderDock() {
     const showCard = () => {
       const d = it.def, r = el.getBoundingClientRect(), locked = d.age !== undefined && G.age < d.age ? `Unlocks in the ${AGES[d.age].name}` : '';
       const html = it.kindOf === 'u' ? tipUnitDef(d) : it.kindOf === 'x' ? `<b>${d.name}</b><i class="role">${d.role}</i><p>${d.what}</p><p class="help"><strong>How it helps:</strong> ${d.help}</p><p class="tipx">${d.tip}</p>${locked ? `<p class="lockn">${locked}</p>` : ''}` : tipBuilding(d, '', locked);
-      showTip(html, r.left, r.top, true);
+      showTip(html, r.left, r.top - (document.documentElement.clientWidth <= 640 ? 0 : 0), true);
     };
-    el.addEventListener('mouseenter', showCard); el.addEventListener('focus', showCard);
+    const hoverCard = () => { if (window.matchMedia && matchMedia('(hover: none)').matches) return; showCard(); };
+    el.addEventListener('mouseenter', hoverCard); el.addEventListener('focus', hoverCard);
     el.addEventListener('mouseleave', hideTip); el.addEventListener('blur', hideTip);
     el.addEventListener('contextmenu', e => { e.preventDefault(); showCard(); tipHold = 3.5; });
     box2.appendChild(el);
@@ -172,7 +173,7 @@ function bDescribe(b) {
   if (!b.done) return `Under construction: ${Math.floor(b.progress * 100)}%`;
   if (d.range) return `Range ${d.range} tiles. Damage ${Math.round(d.dmg * (1 + 0.3 * G.age) * dmgMult())}${d.splash ? ' (area)' : ''}.`;
   if (d.pop && b.type === 'house') return 'Houses 3 animals.';
-  if (d.income) return Object.keys(d.income).map(k => `Makes ${d.income[k]} ${k} per second.`).join(' ');
+  if (d.income) return Object.keys(d.income).map(k => `Makes ${(d.income[k] * (k === 'food' ? seasonFood() : 1)).toFixed(2)} ${k} per second${k === 'food' ? ' (' + SEASONS[ENV.season].name + ')' : ''}.`).join(' ');
   if (b.type === 'keep') return `Lose this and the clan is gone. Housing: ${G.popCap}.`;
   if (d.heal) return `Heals animals and buildings within ${d.heal} tiles.`;
   return '';
@@ -264,10 +265,12 @@ function updateUnitInfo(el, us) {
   row.appendChild(sumBtn('Deselect', () => { G.selU = []; G.cmd = null; }));
 }
 function castAbilities() { let n = 0; for (const u of G.selU) if (useAbility(u)) n++; if (!n) toast('No ability ready or no raiders in reach', true); }
+let hintedMove = false;
 function selectUnits(list, add) {
   G.sel = null; G.build = null; ghost.visible = false;
   if (add) { for (const u of list) if (!G.selU.includes(u)) G.selU.push(u); } else G.selU = list.slice();
   G.cmd = null; infoSig = ''; sfx('click'); updateDock(true);
+  if (!hintedMove) { hintedMove = true; toast('Right-click to move or attack. On touch, tap the ground to move and tap a raider to attack.'); }
 }
 
 /* ===================== placement ghost ===================== */
@@ -359,6 +362,7 @@ function contextOrder(cx, cy) {
   else orderMove(us, p.x, p.z, G.cmd === 'amove');
 }
 function leftClick(cx, cy, e) {
+  const touch = e.pointerType === 'touch' || e.pointerType === 'pen';
   const mine = unitAtScreen(units, cx, cy, 26);
   if (mine) {
     const now = performance.now();
@@ -367,6 +371,11 @@ function leftClick(cx, cy, e) {
     else selectUnits([mine], e.shiftKey);
     lastClick = { t: now, u: mine };
     return;
+  }
+  if (touch && G.selU.length && !G.cmd) {
+    const t0 = tileAt(cx, cy), b0 = t0 && inMap(t0[0], t0[1]) ? occ[t0[0]][t0[1]] : null;
+    if (b0 && b0.done && b0.hp >= b0.maxhp) { G.selU = []; G.sel = b0; infoSig = ''; sfx('click'); return; }
+    contextOrder(cx, cy); return;
   }
   if (G.selU.length && G.cmd) { const p = groundPoint(cx, cy); if (p) { const us = G.selU; orderMove(us, p.x, p.z, G.cmd === 'amove'); G.cmd = null; infoSig = ''; } return; }
   const foe = G.selU.length && unitAtScreen(enemies, cx, cy, 26);
@@ -523,6 +532,7 @@ $('againBtn').addEventListener('click', () => {
   renderDock(); updateDock(true); ghost.visible = false;
 });
 $('btnArmy').addEventListener('click', () => { const army = units.filter(u => !u.dead && u.role !== 'worker'); if (!army.length) return toast('No defenders yet. Build a Barracks and train some', true); selectUnits(army, false); });
+$('btnMenu').addEventListener('click', () => { const hd = document.querySelector('.hud'); hd.classList.toggle('menu'); $('btnMenu').setAttribute('aria-expanded', hd.classList.contains('menu')); sfx('click'); });
 $('btnPause').addEventListener('click', () => { if (!G.over && !$('intro').classList.contains('on')) G.paused = !G.paused; });
 $('btnSpeed').addEventListener('click', () => { G.speed = G.speed >= 3 ? 1 : G.speed + 1; });
 $('btnRotL').addEventListener('click', () => { cam.yaw -= 0.5; });
@@ -570,6 +580,7 @@ function updateSelRings() {
     if (k >= us.length) { if (r) r.visible = false; continue; }
     if (!r) { r = selRings[k] = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.42, 20), new THREE.MeshBasicMaterial({ color: 0xf0b94a, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false })); r.rotation.x = -Math.PI / 2; scene.add(r); }
     const u = us[k];
+    if (!u.dead && !u.bar) showBar(u);
     r.visible = !u.dead; r.position.set(u.x, u.y + 0.06, u.z);
   }
   canvasEl.style.cursor = G.cmd ? 'crosshair' : '';
