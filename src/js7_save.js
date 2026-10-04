@@ -33,8 +33,9 @@ function applySnapshot(s) {
   });
   for (const q of g.spawnQ || []) G.spawnQ.push({ t: G.t + q.dt, kind: q.kind, x: q.x, z: q.z, mult: q.mult });
   for (const sb of s.buildings) {
-    const b = placeBuilding(sb.type, sb.i, sb.j, sb.done);
-    b.maxhp = sb.maxhp || b.maxhp; b.hp = Math.min(sb.hp, b.maxhp);
+    const b = placeBuilding(sb.type === 'palisade' ? 'wall' : sb.type, sb.i, sb.j, sb.done);
+    if (b.def.wall) { const r = sb.maxhp ? Math.min(1, sb.hp / sb.maxhp) : 1; b.hp = b.maxhp * r; }
+    else { b.maxhp = sb.maxhp || b.maxhp; b.hp = Math.min(sb.hp, b.maxhp); }
     if (!sb.done) { b.progress = sb.progress; b.group.scale.y = Math.max(0.06, sb.progress); }
     if (b.hp < b.maxhp) showBar(b);
     if (sb.type === 'keep') G.keepB = b;

@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.3.2', GAME_BUILD = '8f138e4';
+const GAME_VERSION = '1.4.0', GAME_BUILD = 'bfb046c';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 15;
@@ -19,6 +19,8 @@ const AGE_COST = [null,
   { wood: 260, stone: 200, food: 180, gold: 60 },
   { wood: 320, stone: 380, food: 300, gold: 260 }];
 
+const WALL_COST = [{ wood: 6 }, { stone: 8 }, { stone: 10 }, { stone: 12 }];
+const WALL_HP = [110, 340, 520, 760];
 const BDEF = {
   house:    { name: 'Burrow House', cat: 'town', size: 1, age: 0, cost: { wood: 20 }, hp: 90, time: 3, pop: 3, r: 0.8, blurb: 'Shelter for 3 animals.', role: 'Housing', what: 'Burrows where your animals sleep. Every house raises the population cap by 3.', help: 'More animals means more settlers gathering and more defenders. New settlers only arrive while there is room, and soldiers count against the cap too.', tip: 'If the pop counter is full (say 8/8), nobody new will join. Build houses before you need them.' },
   farm:     { name: 'Berry Farm', cat: 'town', size: 1, age: 0, cost: { wood: 30 }, hp: 70, time: 4, r: 0.8, drop: ['food'], income: { food: 0.55 }, blurb: 'Grows food. Berries are dropped off here.', role: 'Food', what: 'A berry patch tended automatically.', help: 'Makes 0.55 food a second on its own, and settlers drop berries off here. Food feeds new settlers (25 each) and trains soldiers.', tip: 'Build beside berry bushes or close to the Hall to keep carry trips short.' },
@@ -27,8 +29,7 @@ const BDEF = {
   market:   { name: 'Market', cat: 'town', size: 1, age: 1, cost: { wood: 70, stone: 20 }, hp: 120, time: 5, r: 0.8, income: { gold: 0.45 }, blurb: 'Trades goods for a trickle of gold.', role: 'Gold income', what: 'Traders pay a steady stream of gold.', help: 'Earns 0.45 gold a second with no workers needed. Gold trains Guards, Knights and Musketeers, upgrades weapons and buys new ages.', tip: 'Several markets fund a much bigger army. They are safest inside your walls.' },
   barracks: { name: 'Barracks', cat: 'army', size: 2, age: 0, cost: { wood: 80, stone: 10 }, hp: 260, time: 7, r: 1.4, blurb: 'Trains defenders. Needed for the units below.', role: 'Training', what: 'Where defenders are trained. Open the Army tab and pick a unit.', help: 'Without one you cannot train soldiers. Defenders gather on the side raiders are coming from, fight them, and level up from kills. Select them and right-click to give orders.', tip: 'Build it near the Hall. Soldiers also count against housing.' },
   smith:    { name: 'Blacksmith', cat: 'army', size: 1, age: 2, cost: { wood: 60, stone: 60 }, hp: 160, time: 6, r: 0.8, blurb: 'Sharpens every weapon in the valley.', role: 'Weapon upgrades', what: 'A forge that sharpens every weapon in the valley.', help: 'Unlocks the Sharpen Weapons upgrade in the Army tab: +20% damage per level for every defender and tower, up to three levels.', tip: 'Worth it before the boss raids at 5, 10 and 15.' },
-  palisade: { name: 'Palisade', cat: 'defense', size: 1, age: 0, cost: { wood: 6 }, hp: 110, time: 1.2, wall: true, r: 0.6, blurb: 'Wooden stakes. Drag to draw a line.', role: 'Cheap wall', what: 'A line of sharpened wooden stakes.', help: 'Raiders must chew through it or walk around. Your own animals walk straight through. It funnels raiders to where your towers and archers can reach them.', tip: 'Drag to draw a line. A gap in front of your towers makes a kill zone.' },
-  wall:     { name: 'Stone Wall', cat: 'defense', size: 1, age: 1, cost: { stone: 8 }, hp: 340, time: 2, wall: true, r: 0.6, blurb: 'Sturdy stone. Drag to draw a line.', role: 'Strong wall', what: 'Stone blocks, over three times tougher than stakes.', help: 'Holds raiders under tower fire for much longer, especially against badger rams. Settlers repair it when idle.', tip: 'Back it with towers: walls buy time, towers do the killing.' },
+  wall:     { name: 'Wall', cat: 'defense', size: 1, age: 0, wall: true, r: 0.6, time: 1.6, get cost() { return WALL_COST[Math.min(G.age, 3)]; }, get hp() { return WALL_HP[Math.min(G.age, 3)]; }, blurb: 'Drag to draw a line. Upgrades itself as you advance.', role: 'Wall', what: 'A line of defence that grows with your clan: wooden stakes in the Hamlet, stone from the Medieval Town, battlements in the Castle Age and reinforced stone with the Gunpowder Age.', help: 'Raiders must chew through it or walk around. Your own animals walk straight through. Every time you advance an age, every wall you have already built is rebuilt stronger for free, keeping its damage. It funnels raiders to where your towers and archers can reach them.', tip: 'Drag to draw a line. A gap in front of your towers makes a kill zone. New walls cost more stone as the ages go on.' },
   tower:    { name: 'Watchtower', cat: 'defense', size: 1, age: 0, cost: { wood: 45, stone: 5 }, hp: 240, time: 5, r: 0.8, range: 7, dmg: 8, rate: 1.1, shot: 'arrow', blurb: 'A fox archer keeps watch.', role: 'Ranged defense', what: 'A fox archer keeps watch from the top.', help: 'Shoots raiders within 7 tiles with no housing or food cost. Damage grows with each age and weapon upgrade.', tip: 'Place a few just behind your walls so raiders stall in range.' },
   ballista: { name: 'Ballista Tower', cat: 'defense', size: 1, age: 2, cost: { wood: 70, stone: 70 }, hp: 360, time: 7, r: 0.8, range: 9.5, dmg: 36, rate: 2.1, shot: 'bolt', blurb: 'Heavy bolts at long range.', role: 'Heavy ranged defense', what: 'A crossbow turret with a long reach.', help: 'Fires heavy bolts out to 9.5 tiles for 36 damage each. Slow, but great against boars, badger rams and the Warlord.', tip: 'Pair with cheaper watchtowers to cover the gaps while it reloads.' },
   cannon:   { name: 'Cannon Tower', cat: 'defense', size: 1, age: 3, cost: { stone: 90, gold: 70 }, hp: 460, time: 8, r: 0.8, range: 8.5, dmg: 58, rate: 3, splash: 1.7, shot: 'ball', blurb: 'Explosive damage in an area.', role: 'Area defense', what: 'A gunpowder cannon that blasts whole packs.', help: 'Cannonballs explode for 58 damage in a wide splash, so raiders bunched at your wall take it all at once.', tip: 'Best right behind a wall where raiders pile up.' },
@@ -467,8 +468,8 @@ function buildModel(b) {
       box(g, 0.2, 0, 0.36, 0.2, 0.1, 0.14, 0x2b2e33); box(g, 0.17, 0.1, 0.34, 0.26, 0.06, 0.18, 0x2b2e33);
       box(g, -0.08, 0, 0.34, 0.16, 0.24, 0.03, 0x2a1d18);
       break;
-    case 'palisade': case 'wall': {
-      const nb = wallNeighbors(b), pal = t === 'palisade';
+    case 'wall': {
+      const nb = wallNeighbors(b), pal = A === 0;
       const c1 = pal ? WOOD : STONE, c2 = pal ? 0x9a6a3c : STONE_TOP;
       if (pal) {
         box(g, -0.16, 0, -0.16, 0.32, 0.7, 0.32, c1); box(g, -0.1, 0.7, -0.1, 0.2, 0.12, 0.2, c1); box(g, -0.04, 0.82, -0.04, 0.08, 0.08, 0.08, c1);
@@ -482,6 +483,12 @@ function buildModel(b) {
         if (nb.w) { box(g, -0.5, 0, -0.18, 0.24, 0.65, 0.36, c1); box(g, -0.5, 0.65, -0.21, 0.24, 0.1, 0.42, c2); }
         if (nb.s) { box(g, -0.18, 0, 0.26, 0.36, 0.65, 0.24, c1); box(g, -0.21, 0.65, 0.26, 0.42, 0.1, 0.24, c2); }
         if (nb.n) { box(g, -0.18, 0, -0.5, 0.36, 0.65, 0.24, c1); box(g, -0.21, 0.65, -0.5, 0.42, 0.1, 0.24, c2); }
+        if (A >= 2) {   // battlements on the post and along the runs
+          [[-0.3, -0.3], [0.18, -0.3], [-0.3, 0.18], [0.18, 0.18]].forEach(([x, z]) => box(g, x, 0.97, z, 0.12, 0.14, 0.12, c2));
+          if (nb.e) box(g, 0.32, 0.75, -0.04, 0.12, 0.12, 0.08, c2); if (nb.w) box(g, -0.44, 0.75, -0.04, 0.12, 0.12, 0.08, c2);
+          if (nb.s) box(g, -0.04, 0.75, 0.32, 0.08, 0.12, 0.12, c2); if (nb.n) box(g, -0.04, 0.75, -0.44, 0.08, 0.12, 0.12, c2);
+        }
+        if (A >= 3) box(g, -0.31, 0.5, -0.31, 0.62, 0.06, 0.62, P.trim);   // gold band
       }
       break;
     }
@@ -614,6 +621,7 @@ const ICONS = {
   cannon: [[24, 31, 10, 13, 0x6c737a, 0x6c737a], [24, 18, 12, 3, 0xe3b44e, 0xb98c2a], [24, 13, 4, 5, 0x25282c, 0x25282c]]
 };
 function iconSVG(type) {
+  if (type === 'wall' && G.age === 0) type = 'palisade';
   return `<svg viewBox="0 0 48 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${ICONS[type].map(a => iso(...a)).join('')}</svg>`;
 }
 function unitIconSVG(sp) {
@@ -1574,11 +1582,12 @@ function advanceAge() {
   pay(c); G.age++;
   for (const b of buildings) {
     if (b.type === 'keep') { b.maxhp = BDEF.keep.hp + 600 * G.age; b.hp = Math.min(b.maxhp, b.hp + b.maxhp * 0.4); }
-    if (!b.def.wall) makeBuildingMesh(b);
+    if (b.def.wall) { const r = b.hp / b.maxhp; b.maxhp = b.def.hp; b.hp = b.maxhp * r; if (b.hp < b.maxhp) showBar(b); }
+    makeBuildingMesh(b);
     if (!b.done) addScaffoldFix(b);
   }
-  sfx('age');
-  toast(`A new age dawns: ${AGES[G.age].name}`);
+  sfx('age'); renderDock(); updateDock(true);
+  toast(`A new age dawns: ${AGES[G.age].name}` + (buildings.some(b => b.def.wall) ? '. Your walls were rebuilt stronger' : ''));
   puff(G.keepB.x, 1.5, G.keepB.z, 0xf0b94a, 24, 3, 1, 0.2);
 }
 function addScaffoldFix(b) { if (b.scaf) { scene.remove(b.scaf); b.scaf = null; } addScaffold(b); }
@@ -2340,7 +2349,7 @@ function updateDock(force) {
     c.el.classList.toggle('locked', !!(d.age !== undefined && G.age < d.age));
     c.el.classList.toggle('sel', sel);
     c.el.querySelector('.lk').textContent = lock;
-    if (c.it.kindOf === 'x') c.el.querySelector('.cs').innerHTML = costHTML(cost);
+    if (c.it.kindOf === 'x' || d.wall) c.el.querySelector('.cs').innerHTML = costHTML(cost);
     c.el.querySelectorAll('.cs span').forEach(s => s.classList.toggle('no', G.res[s.dataset.r] < +s.dataset.n));
   }
 }
@@ -2887,8 +2896,9 @@ function applySnapshot(s) {
   });
   for (const q of g.spawnQ || []) G.spawnQ.push({ t: G.t + q.dt, kind: q.kind, x: q.x, z: q.z, mult: q.mult });
   for (const sb of s.buildings) {
-    const b = placeBuilding(sb.type, sb.i, sb.j, sb.done);
-    b.maxhp = sb.maxhp || b.maxhp; b.hp = Math.min(sb.hp, b.maxhp);
+    const b = placeBuilding(sb.type === 'palisade' ? 'wall' : sb.type, sb.i, sb.j, sb.done);
+    if (b.def.wall) { const r = sb.maxhp ? Math.min(1, sb.hp / sb.maxhp) : 1; b.hp = b.maxhp * r; }
+    else { b.maxhp = sb.maxhp || b.maxhp; b.hp = Math.min(sb.hp, b.maxhp); }
     if (!sb.done) { b.progress = sb.progress; b.group.scale.y = Math.max(0.06, sb.progress); }
     if (b.hp < b.maxhp) showBar(b);
     if (sb.type === 'keep') G.keepB = b;

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0
+- Palisade and Stone Wall are now one building, Wall, available from the start. It upgrades itself every age like towers do: wooden stakes, stone, battlements (Castle Age), reinforced stone with a gold band (Gunpowder Age). Existing walls are rebuilt stronger for free when you advance and keep their damage ratio.
+- Wall cost and health follow your current age (6 wood, then 8, 10 and 12 stone; 110, 340, 520 and 760 hp).
+- Old saves that contain palisades load as walls.
+
 ## 1.3.2
 - New Game menu: the Save button is now Menu. It has Resume, New game (tap twice to confirm; saves are kept), the save slots, export and import, and a short phone how-to-play.
 - Camera buttons on the right reworked to respond on touch down: tap for a step (zoom, 45 degree turn, tilt flip, reset) or press and hold for smooth continuous zoom, rotation and tilt.

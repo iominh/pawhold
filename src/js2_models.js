@@ -248,8 +248,8 @@ function buildModel(b) {
       box(g, 0.2, 0, 0.36, 0.2, 0.1, 0.14, 0x2b2e33); box(g, 0.17, 0.1, 0.34, 0.26, 0.06, 0.18, 0x2b2e33);
       box(g, -0.08, 0, 0.34, 0.16, 0.24, 0.03, 0x2a1d18);
       break;
-    case 'palisade': case 'wall': {
-      const nb = wallNeighbors(b), pal = t === 'palisade';
+    case 'wall': {
+      const nb = wallNeighbors(b), pal = A === 0;
       const c1 = pal ? WOOD : STONE, c2 = pal ? 0x9a6a3c : STONE_TOP;
       if (pal) {
         box(g, -0.16, 0, -0.16, 0.32, 0.7, 0.32, c1); box(g, -0.1, 0.7, -0.1, 0.2, 0.12, 0.2, c1); box(g, -0.04, 0.82, -0.04, 0.08, 0.08, 0.08, c1);
@@ -263,6 +263,12 @@ function buildModel(b) {
         if (nb.w) { box(g, -0.5, 0, -0.18, 0.24, 0.65, 0.36, c1); box(g, -0.5, 0.65, -0.21, 0.24, 0.1, 0.42, c2); }
         if (nb.s) { box(g, -0.18, 0, 0.26, 0.36, 0.65, 0.24, c1); box(g, -0.21, 0.65, 0.26, 0.42, 0.1, 0.24, c2); }
         if (nb.n) { box(g, -0.18, 0, -0.5, 0.36, 0.65, 0.24, c1); box(g, -0.21, 0.65, -0.5, 0.42, 0.1, 0.24, c2); }
+        if (A >= 2) {   // battlements on the post and along the runs
+          [[-0.3, -0.3], [0.18, -0.3], [-0.3, 0.18], [0.18, 0.18]].forEach(([x, z]) => box(g, x, 0.97, z, 0.12, 0.14, 0.12, c2));
+          if (nb.e) box(g, 0.32, 0.75, -0.04, 0.12, 0.12, 0.08, c2); if (nb.w) box(g, -0.44, 0.75, -0.04, 0.12, 0.12, 0.08, c2);
+          if (nb.s) box(g, -0.04, 0.75, 0.32, 0.08, 0.12, 0.12, c2); if (nb.n) box(g, -0.04, 0.75, -0.44, 0.08, 0.12, 0.12, c2);
+        }
+        if (A >= 3) box(g, -0.31, 0.5, -0.31, 0.62, 0.06, 0.62, P.trim);   // gold band
       }
       break;
     }
@@ -395,6 +401,7 @@ const ICONS = {
   cannon: [[24, 31, 10, 13, 0x6c737a, 0x6c737a], [24, 18, 12, 3, 0xe3b44e, 0xb98c2a], [24, 13, 4, 5, 0x25282c, 0x25282c]]
 };
 function iconSVG(type) {
+  if (type === 'wall' && G.age === 0) type = 'palisade';
   return `<svg viewBox="0 0 48 44" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${ICONS[type].map(a => iso(...a)).join('')}</svg>`;
 }
 function unitIconSVG(sp) {

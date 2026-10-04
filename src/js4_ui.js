@@ -141,7 +141,7 @@ function updateDock(force) {
     c.el.classList.toggle('locked', !!(d.age !== undefined && G.age < d.age));
     c.el.classList.toggle('sel', sel);
     c.el.querySelector('.lk').textContent = lock;
-    if (c.it.kindOf === 'x') c.el.querySelector('.cs').innerHTML = costHTML(cost);
+    if (c.it.kindOf === 'x' || d.wall) c.el.querySelector('.cs').innerHTML = costHTML(cost);
     c.el.querySelectorAll('.cs span').forEach(s => s.classList.toggle('no', G.res[s.dataset.r] < +s.dataset.n));
   }
 }

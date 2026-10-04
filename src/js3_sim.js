@@ -947,11 +947,12 @@ function advanceAge() {
   pay(c); G.age++;
   for (const b of buildings) {
     if (b.type === 'keep') { b.maxhp = BDEF.keep.hp + 600 * G.age; b.hp = Math.min(b.maxhp, b.hp + b.maxhp * 0.4); }
-    if (!b.def.wall) makeBuildingMesh(b);
+    if (b.def.wall) { const r = b.hp / b.maxhp; b.maxhp = b.def.hp; b.hp = b.maxhp * r; if (b.hp < b.maxhp) showBar(b); }
+    makeBuildingMesh(b);
     if (!b.done) addScaffoldFix(b);
   }
-  sfx('age');
-  toast(`A new age dawns: ${AGES[G.age].name}`);
+  sfx('age'); renderDock(); updateDock(true);
+  toast(`A new age dawns: ${AGES[G.age].name}` + (buildings.some(b => b.def.wall) ? '. Your walls were rebuilt stronger' : ''));
   puff(G.keepB.x, 1.5, G.keepB.z, 0xf0b94a, 24, 3, 1, 0.2);
 }
 function addScaffoldFix(b) { if (b.scaf) { scene.remove(b.scaf); b.scaf = null; } addScaffold(b); }
