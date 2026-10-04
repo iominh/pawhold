@@ -1,13 +1,13 @@
 /* ===================== game state ===================== */
 const G = {
-  res: { wood: 0, stone: 0, food: 0, gold: 0 }, age: 0, t: 0, wave: 0, nextWave: 90, speed: 1, paused: true, over: false,
+  res: { wood: 0, stone: 0, food: 0, gold: 0, alloy: 0, anti: 0 }, age: 0, t: 0, wave: 0, nextWave: 90, speed: 1, paused: true, over: false,
   smith: 0, tech: {}, diff: 'normal', threat: 0, spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 0, keepB: null, kills: 0, sel: null, build: null, popCap: 5, selU: [], cmd: null
 };
 const buildings = [], units = [], enemies = [], shots = [], parts = [];
 let bid = 1;
 const TGT = { wood: 260, stone: 140, food: 200, gold: 80 };
 const dist2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
-const afford = c => Object.keys(c).every(k => G.res[k] >= c[k]);
+const afford = c => Object.keys(c).every(k => (G.res[k] || 0) >= c[k]);
 const pay = c => { for (const k in c) G.res[k] -= c[k]; };
 const dmgMult = () => (1 + 0.2 * G.smith) * (1 + 0.15 * ((G.tech && G.tech.stellar) || 0));
 const TL = id => (G.tech && G.tech[id]) || 0;   // tech level
@@ -1225,6 +1225,7 @@ function step(dt) {
   for (const b of buildings) {
     if (!b.done) continue;
     if (b.def.income) for (const k in b.def.income) G.res[k] += b.def.income[k] * dt * incomeMult(b, k);
+    if (b.def.convert) { const cv = b.def.convert, m = incomeMult(b, 'x'); let ok = true; for (const k in cv.from) if ((G.res[k] || 0) < cv.from[k] * dt) ok = false; b.converting = ok; if (ok) { for (const k in cv.from) G.res[k] -= cv.from[k] * dt; for (const k in cv.to) G.res[k] = (G.res[k] || 0) + cv.to[k] * dt * m; } }
     if (b.farmers) G.res.food += b.farmers * 0.3 * dt * incomeMult(b, 'food');
     if (b.def.mend) for (const o of buildings) if (o !== b && o.done && o.hp < o.maxhp && dist2(o, b) <= b.def.heal) { o.hp = Math.min(o.maxhp, o.hp + o.maxhp * b.def.mend * dt); if (o.hp >= o.maxhp) dropBar(o); }
     if (b.type === 'starbeacon') { b.droneT = (b.droneT || 15) - dt; if (b.droneT <= 0) { b.droneT = 40; const mine = units.filter(u => !u.dead && u.role === 'drone' && u.home2 === b.id).length; if (mine < 4) { const sp0 = validSpot(b.x + rnd(-1, 1), b.z + 1.8), u = makeUnit('drone', sp0[0], sp0[1]); u.home2 = b.id; puff(u.x, 1, u.z, 0xfff1a8, 8, 1.4, 0.6, 0.1); sfx('spawn', u.x, u.z); } } }
@@ -1307,7 +1308,7 @@ function clearEntities() {
 function newGame() {
   clearEntities();
   genWorld();
-  Object.assign(G, { res: { wood: 140, stone: 30, food: 100, gold: 20 }, age: 0, t: 0, wave: 0, nextWave: (DIFF[G.diff] || DIFF.normal).first, over: false, endless: false, smith: 0, tech: {}, threat: rnd(0, 6.28), spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 6, kills: 0, sel: null, build: null, selU: [], cmd: null });
+  Object.assign(G, { res: { wood: 140, stone: 30, food: 100, gold: 20, alloy: 0, anti: 0 }, age: 0, t: 0, wave: 0, nextWave: (DIFF[G.diff] || DIFF.normal).first, over: false, endless: false, smith: 0, tech: {}, threat: rnd(0, 6.28), spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 6, kills: 0, sel: null, build: null, selU: [], cmd: null });
   resetEnv();
   G.keepB = placeBuilding('keep', KX, KZ, true);
   for (let k = 0; k < 5; k++) makeUnit('worker', KX - 2 + k, KZ + 2.4);

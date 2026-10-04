@@ -384,6 +384,23 @@ function buildModel(b) {
       g.add(tur); b.turret = tur;
       break;
     }
+    case 'refinery': {
+      box(g, -0.42, 0, -0.42, 0.84, 0.5, 0.84, 0x2f3b4a);
+      box(g, -0.3, 0.5, -0.3, 0.6, 0.3, 0.6, 0x1b2430);
+      [[-0.3, -0.3], [0.1, -0.3], [-0.3, 0.1], [0.1, 0.1]].forEach(([x, z]) => { box(g, x, 0.8, z, 0.2, 0.45, 0.2, 0x3b4a5a); box(g, x + 0.04, 1.25, z + 0.04, 0.12, 0.1, 0.12, 0xff7a2a, LAMP); });
+      box(g, -0.1, 0.1, 0.42, 0.2, 0.3, 0.03, 0xffb347, LAMP);
+      break;
+    }
+    case 'collider': {
+      box(g, -0.95, 0, -0.95, 1.9, 0.2, 1.9, 0x3a2a5a);
+      [[-0.9, -0.9, 1.8, 0.2], [-0.9, 0.7, 1.8, 0.2], [-0.9, -0.7, 0.2, 1.4], [0.7, -0.7, 0.2, 1.4]].forEach(([x, z, w, d]) => box(g, x, 0.2, z, w, 0.5, d, 0x22183a));
+      [[-0.85, -0.85, 1.7, 0.1], [-0.85, 0.75, 1.7, 0.1], [-0.85, -0.75, 0.1, 1.5], [0.75, -0.75, 0.1, 1.5]].forEach(([x, z, w, d]) => box(g, x, 0.5, z, w, 0.08, d, 0xb060ff, LAMP));
+      box(g, -0.3, 0.2, -0.3, 0.6, 0.9, 0.6, 0x3a2a5a); box(g, -0.15, 1.1, -0.15, 0.3, 0.3, 0.3, 0xe6c7ff, LAMP);
+      const ring = new THREE.Group(); ring.position.set(0, 0.8, 0);
+      [0, 1, 2, 3, 4, 5].forEach(k => { const a = k / 6 * Math.PI * 2; box(ring, Math.cos(a) * 0.55 - 0.05, 0, Math.sin(a) * 0.55 - 0.05, 0.1, 0.1, 0.1, 0xb060ff, LAMP); });
+      g.add(ring); (g.userData.spin = g.userData.spin || []).push(ring);
+      break;
+    }
     case 'reactor': {
       box(g, -0.95, 0, -0.95, 1.9, 0.3, 1.9, 0x2f3b4a);
       [[0.8, 0.5], [0.62, 0.4], [0.4, 0.3]].forEach(([s, h], k) => box(g, -s, 0.3 + k * 0.45, -s, s * 2, h, s * 2, k % 2 ? 0x1b2430 : 0x2f3b4a));
@@ -583,6 +600,8 @@ const ICONS = {
   tower: [[24, 30, 8, 16, 0xb9bfc5, 0x9aa1a8], [24, 16, 11, 3, 0xc6ccd1, 0xc6ccd1]],
   ballista: [[24, 30, 8, 16, 0xb9bfc5, 0x9aa1a8], [24, 16, 11, 3, 0xc6ccd1, 0xc6ccd1], [24, 12, 6, 2, 0x7b5232, 0x5a3a22]],
   cannon: [[24, 31, 10, 13, 0x6c737a, 0x6c737a], [24, 18, 12, 3, 0xe3b44e, 0xb98c2a], [24, 13, 4, 5, 0x25282c, 0x25282c]],
+  refinery: [[24, 30, 14, 8, 0x2f3b4a, 0x1b2430], [18, 20, 4, 8, 0x3b4a5a, 0x2a3340], [30, 20, 4, 8, 0x3b4a5a, 0x2a3340], [24, 14, 6, 4, 0xff7a2a, 0xff7a2a]],
+  collider: [[24, 30, 20, 8, 0x3a2a5a, 0x22183a], [24, 24, 16, 4, 0xb060ff, 0x8a3fd0], [24, 16, 8, 8, 0xe6c7ff, 0xb060ff]],
   reactor: [[24, 30, 20, 8, 0x2f3b4a, 0x1b2430], [24, 22, 12, 6, 0x2f3b4a, 0x1b2430], [24, 15, 5, 8, 0xff7a2a, 0xff7a2a]],
   orbital: [[24, 32, 10, 5, 0xe8ecf4, 0xc3d0ff], [24, 20, 4, 14, 0x2a3350, 0x1b2430], [24, 12, 16, 4, 0xe8ecf4, 0x5c6fff]],
   nanoforge: [[24, 32, 14, 5, 0x1f2a2a, 0x0f1a1a], [24, 22, 8, 12, 0x7fffd4, 0x19e6a0], [24, 17, 12, 3, 0x19e6a0, 0x19e6a0]],

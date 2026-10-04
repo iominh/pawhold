@@ -83,10 +83,21 @@ function placeTip(x, y, above) {
 function showTip(html, x, y, above) { if (tipEl.dataset.h !== html) { tipEl.innerHTML = html; tipEl.dataset.h = html; } placeTip(x, y, above); }
 function hideTip() { tipEl.classList.remove('on'); tipEl.dataset.h = ''; }
 let tipHold = 0;
-const SWC = { wood: 'w', stone: 's', food: 'f', gold: 'g' };
+const SWC = { wood: 'w', stone: 's', food: 'f', gold: 'g', alloy: 'a', anti: 'n' };
 const costHTML = c => Object.keys(c).map(k => `<span data-r="${k}" data-n="${c[k]}"><i class="sw ${SWC[k]}"></i>${c[k]}</span>`).join('');
 const TABS = [{ id: 'town', name: 'Town' }, { id: 'defense', name: 'Defense' }, { id: 'army', name: 'Army' }, { id: 'research', name: 'Research' }];
 let curTab = 'town', cards = [];
+/* the card strip scrolls sideways: mouse wheel over it scrolls it, arrows appear when there is more */
+(function dockScroll() {
+  const el = $('cards'), wrap = $('cardsWrap');
+  const sync = () => { wrap.classList.toggle('canL', el.scrollLeft > 4); wrap.classList.toggle('canR', el.scrollLeft + el.clientWidth < el.scrollWidth - 4); };
+  el.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); el.scrollLeft += e.deltaY; } }, { passive: false });
+  el.addEventListener('scroll', sync);
+  $('cardsL').addEventListener('click', () => { el.scrollLeft -= el.clientWidth * 0.7; });
+  $('cardsR').addEventListener('click', () => { el.scrollLeft += el.clientWidth * 0.7; });
+  window.addEventListener('resize', sync);
+  setInterval(sync, 500);
+})();
 const TECH_ICON = { farm: 'farm', tools: 'camp', carts: 'camp', forestry: 'sapling', quarrying: 'quarry', trade: 'market', housing: 'house', medicine: 'infirmary', automata: 'smith', armor: 'smith', drill: 'barracks', fletching: 'tower', veterans: 'barracks', banners: 'barracks', aero: 'skyport', walls: 'wall', siegecraft: 'ballista', watchfires: 'tower', repair: 'camp', masonry: 'quarry', beacon: 'laser', smith: 'smith', fusion: 'reactor', nano: 'nanoforge', quantumcore: 'quantum', stellar: 'starbeacon', targeting: 'orbital' };
 function techIcon(id) { return iconSVG(TECH_ICON[id] || 'smith'); }
 function renderDock() {
@@ -161,6 +172,10 @@ function setText(id, v) { if (hud.cache[id] !== v) { hud.cache[id] = v; $(id).te
 function updateHUD() {
   setText('vWood', Math.floor(G.res.wood)); setText('vStone', Math.floor(G.res.stone));
   setText('vFood', Math.floor(G.res.food)); setText('vGold', Math.floor(G.res.gold));
+  const showA = G.age >= 7 || G.res.alloy > 0, showN = G.age >= 10 || G.res.anti > 0;
+  if (hud.cache.showA !== showA) { hud.cache.showA = showA; $('chipAlloy').style.display = showA ? '' : 'none'; }
+  if (hud.cache.showN !== showN) { hud.cache.showN = showN; $('chipAnti').style.display = showN ? '' : 'none'; }
+  if (showA) setText('vAlloy', Math.floor(G.res.alloy || 0)); if (showN) setText('vAnti', Math.floor(G.res.anti || 0));
   setText('vPop', popCount() + '/' + G.popCap); $('popChip').classList.toggle('full', popCount() >= G.popCap);
   setText('ageName', AGES[G.age].name);
   const ab = $('ageBtn');
@@ -174,12 +189,12 @@ function updateHUD() {
   }
   const alive = enemies.filter(e => !e.dead).length + G.spawnQ.length;
   const wb = $('waveBox');
-  if (G.wave >= TOTAL_WAVES) {
+  if (G.wave >= TOTAL_WAVES && !G.endless) {
     setText('waveTxt', alive ? `Final raid: ${alive} raiders left` : 'The valley is quiet');
     $('callBtn').style.display = 'none'; wb.classList.toggle('hot', alive > 0); $('waveBar').style.width = '0';
   } else {
-    const left = Math.max(0, Math.ceil(G.nextWave - G.t));
-    setText('waveTxt', (alive ? `Raid ${G.wave}: ${alive} raiders  ·  ` : '') + `Raid ${G.wave + 1} in ${left}s`);
+    const left = Math.max(0, Math.ceil(G.nextWave - G.t)), endlessTag = G.endless && G.wave >= TOTAL_WAVES ? ' (endless)' : '';
+    setText('waveTxt', (alive ? `Raid ${G.wave}: ${alive} raiders  ·  ` : '') + `Raid ${G.wave + 1}${endlessTag} in ${left}s`);
     $('callBtn').style.display = left > 5 ? '' : 'none';
     wb.classList.toggle('hot', alive > 0);
     const span = Math.max(1, G.nextWave - (hud.spanStart || 0));
@@ -196,7 +211,8 @@ function bDescribe(b) {
   if (!b.done) return `Under construction: ${Math.floor(b.progress * 100)}%`;
   if (d.range) return `Range ${d.range} tiles. Damage ${Math.round(d.dmg * (1 + 0.3 * G.age) * dmgMult())}${d.splash ? ' (area)' : ''}.`;
   if (d.pop && b.type === 'house') return 'Houses 3 animals.';
-  if (d.income) return Object.keys(d.income).map(k => `Makes ${(d.income[k] * (k === 'food' ? seasonFood() : 1)).toFixed(2)} ${k} per second${k === 'food' ? ' (' + SEASONS[ENV.season].name + ')' : ''}.`).join(' ') + (b.farmers ? ` ${b.farmers} settler${b.farmers > 1 ? 's' : ''} tending it for +${(b.farmers * 0.3 * seasonFood()).toFixed(2)} food/s.` : '');
+  if (d.convert) return `Converts ${Object.keys(d.convert.from).map(k => d.convert.from[k] + ' ' + RES_NAME[k].toLowerCase()).join(' and ')} into ${Object.keys(d.convert.to).map(k => d.convert.to[k] + ' ' + RES_NAME[k].toLowerCase()).join(', ')} every second${b.done ? (b.converting ? '. Running.' : '. Idle: missing inputs.') : '.'}`;
+  if (d.income) return Object.keys(d.income).map(k => `Makes ${(d.income[k] * (k === 'food' ? seasonFood() : 1)).toFixed(2)} ${RES_NAME[k].toLowerCase()} per second${k === 'food' ? ' (' + SEASONS[ENV.season].name + ')' : ''}.`).join(' ') + (b.farmers ? ` ${b.farmers} settler${b.farmers > 1 ? 's' : ''} tending it for +${(b.farmers * 0.3 * seasonFood()).toFixed(2)} food/s.` : '');
   if (b.type === 'keep') return `Lose this and the clan is gone. Housing: ${G.popCap}.`;
   if (d.heal) return `Heals animals and buildings within ${d.heal} tiles.`;
   return '';

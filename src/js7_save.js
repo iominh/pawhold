@@ -28,7 +28,7 @@ function applySnapshot(s) {
   genWorld(s);
   const g = s.G;
   Object.assign(G, {
-    res: Object.assign({ wood: 0, stone: 0, food: 0, gold: 0 }, g.res), age: g.age, t: g.t, wave: g.wave, nextWave: g.nextWave < 0 ? Infinity : g.nextWave, over: false, endless: !!g.endless, smith: g.smith, tech: Object.assign({}, g.tech || {}), diff: DIFF[g.diff] ? g.diff : 'normal', threat: g.threat,
+    res: Object.assign({ wood: 0, stone: 0, food: 0, gold: 0, alloy: 0, anti: 0 }, g.res), age: g.age, t: g.t, wave: g.wave, nextWave: g.nextWave < 0 ? Infinity : g.nextWave, over: false, endless: !!g.endless, smith: g.smith, tech: Object.assign({}, g.tech || {}), diff: DIFF[g.diff] ? g.diff : 'normal', threat: g.threat,
     spawnQ: [], markers: [], slot: 0, birthT: g.birthT, treeT: g.treeT, kills: g.kills, sel: null, build: null, selU: [], cmd: null, speed: g.speed || 1
   });
   for (const q of g.spawnQ || []) G.spawnQ.push({ t: G.t + q.dt, kind: q.kind, x: q.x, z: q.z, mult: q.mult });
@@ -173,7 +173,7 @@ function diagReport() {
 $('diagCopy').addEventListener('click', () => { const txt = JSON.stringify(diagReport(), null, 1); const done = () => toast('Diagnostics copied. Paste them to the developer'); if (navigator.clipboard) navigator.clipboard.writeText(txt).then(done, () => { $('diagText').textContent = txt; }); else $('diagText').textContent = txt; });
 function openSaveModal() {
   modalWasPaused = G.paused; G.paused = true;
-  modalEl.classList.add('on'); renderSaveModal();
+  modalEl.classList.add('on'); renderSaveModal(); refreshEndlessBtn();
   { const d = diagReport(); $('diagText').textContent = `v${d.version} (${d.build}) · ${d.fps} fps · ${d.settlers} settlers, ${d.defenders} defenders, ${d.raiders} raiders · frozen animals reset: ${d.frozenResets}\n` + Object.entries(d.states).map(([k, v]) => `${k}: ${v}`).join(', '); }
 }
 function closeSaveModal(loaded) {
@@ -183,6 +183,12 @@ function closeSaveModal(loaded) {
 $('btnSave').addEventListener('click', () => { sfx('click'); openSaveModal(); });
 $('saveClose').addEventListener('click', () => closeSaveModal(false));
 $('menuResume').addEventListener('click', () => closeSaveModal(false));
+function refreshEndlessBtn() { $('endlessToggle').textContent = `Endless raids: ${G.endless ? 'On' : 'Off'}`; $('endlessToggle').classList.toggle('on', !!G.endless); }
+$('endlessToggle').addEventListener('click', () => {
+  G.endless = !G.endless; sfx('click'); refreshEndlessBtn();
+  if (G.endless && G.wave >= TOTAL_WAVES && G.nextWave === Infinity) G.nextWave = G.t + 45;
+  toast(G.endless ? 'Endless raids on: they keep coming after the 25th' : 'Endless raids off: the chronicle ends after raid 25');
+});
 let newArmed = 0;
 $('saveNew').addEventListener('click', () => {
   const b = $('saveNew');

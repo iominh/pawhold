@@ -1,4 +1,4 @@
-const GAME_VERSION = '2.0.0', GAME_BUILD = 'fe67040';
+const GAME_VERSION = '2.1.0', GAME_BUILD = 'dfe4316';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 88, KX = 44, KZ = 44, MARGIN = 3, TOTAL_WAVES = 25, RAID_DIST = 21;   // raiders muster about 21 tiles out, whatever the map size
@@ -6,7 +6,9 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 const rint = (a, b) => Math.floor(rnd(a, b + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const RES = ['wood', 'stone', 'food', 'gold'];
+const RES = ['wood', 'stone', 'food', 'gold'];          // gathered by settlers
+const RES2 = ['alloy', 'anti'];                          // made by late-age buildings: Alloy from the Fusion Age, Antimatter from the Quantum Age
+const RES_NAME = { wood: 'Wood', stone: 'Stone', food: 'Food', gold: 'Gold', alloy: 'Alloy', anti: 'Antimatter' };
 
 const AGES = [
   { name: 'Hamlet', sky: 0xa9d9ee, sun: 0xfff2d8, sunI: 0.85, pal: { wall: 0xb98a56, roof: 0xd8b85c, trim: 0x7b5232, beam: 0x7b5232, flag: 0xe4702b } },
@@ -30,10 +32,10 @@ const AGE_COST = [null,
   { wood: 540, stone: 720, food: 560, gold: 720 },
   { wood: 600, stone: 900, food: 700, gold: 1000 },
   { wood: 700, stone: 1100, food: 900, gold: 1400 },
-  { wood: 800, stone: 1400, food: 1100, gold: 1900 },
-  { wood: 900, stone: 1700, food: 1300, gold: 2500 },
-  { wood: 1000, stone: 2000, food: 1600, gold: 3200 },
-  { wood: 1200, stone: 2400, food: 2000, gold: 4000 }];
+  { wood: 800, stone: 1400, food: 1100, gold: 1900, alloy: 250 },
+  { wood: 900, stone: 1700, food: 1300, gold: 2500, alloy: 450 },
+  { wood: 1000, stone: 2000, food: 1600, gold: 3200, alloy: 700 },
+  { wood: 1200, stone: 2400, food: 2000, gold: 4000, alloy: 900, anti: 200 }];
 
 const DIFF = {
   gentle: { name: 'Gentle', first: 150, gapHi: 100, gapLo: 60, count: 0.65, mult: 0.8, blurb: 'Fewer, weaker raiders and long breaks between raids. Good for learning the valley.' },
@@ -62,11 +64,13 @@ const BDEF = {
   skyscraper: { name: 'Skyscraper', cat: 'town', size: 2, age: 6, cost: { stone: 220, gold: 160 }, hp: 900, time: 12, pop: 12, r: 1.4, blurb: 'A tower of homes: houses 12.', role: 'Housing', what: 'A glass-and-composite tower that reaches for the clouds.', help: 'Houses 12 animals on a 2x2 footprint, four times a Burrow House on a quarter of the land. Its windows light up at night.', tip: 'Replace clusters of old houses with one tower to free space inside the walls.' },
   laser:    { name: 'Laser Tower', cat: 'defense', size: 1, age: 6, cost: { stone: 150, gold: 320 }, hp: 700, time: 9, r: 0.8, range: 10, dmg: 34, rate: 0.6, shot: 'laser', blurb: 'A beam that never misses.', role: 'Beam defense', what: 'A slender pylon with a focusing lens.', help: 'Fires a beam every 0.6 seconds out to 10 tiles for 34 damage. Fast, long and accurate: the all-round defense of the Skyward Age.', tip: 'A ring of lasers around the walls makes the valley very hard to approach.' },
   skyport:  { name: 'Sky Port', cat: 'army', size: 2, age: 6, cost: { stone: 200, gold: 300 }, hp: 700, time: 12, r: 1.4, blurb: 'Launch pad for Sky Skiffs.', role: 'Flight', what: 'A landing pad with a maintenance drone.', help: 'Needed to train Sky Skiffs, the flying defenders that ignore walls, water and crowds. Skiffs launch from here.', tip: 'Build it inside the walls; skiffs can fly out over them.' },
-  reactor:  { name: 'Fusion Reactor', cat: 'town', size: 2, age: 7, cost: { stone: 500, gold: 500 }, hp: 1200, time: 14, r: 1.4, income: { gold: 0.6, stone: 0.3, food: 0.4 }, blurb: 'Limitless power: gold, stone and food on its own.', role: 'Power', what: 'A containment dome with a star inside.', help: 'Produces 0.6 gold, 0.3 stone and 0.4 food a second with no workers. Research Fusion Lattice to boost every income further.', tip: 'Two reactors replace a whole mining economy.' },
-  orbital:  { name: 'Orbital Beacon', cat: 'defense', size: 1, age: 8, cost: { stone: 400, gold: 700 }, hp: 900, time: 12, r: 0.8, range: 14, dmg: 240, rate: 7, splash: 3.2, shot: 'orbital', blurb: 'Calls down strikes from orbit.', role: 'Orbital strike', what: 'A targeting dish that talks to the satellites.', help: 'Every 7 seconds a strike lands for 240 damage in a 3.2 tile blast, out to 14 tiles. Nothing on the ground survives many of them.', tip: 'One in the middle of town reaches everything.' },
-  nanoforge: { name: 'Nanoforge', cat: 'town', size: 1, age: 9, cost: { stone: 450, gold: 800 }, hp: 1000, time: 12, r: 0.8, heal: 8, mend: 0.012, blurb: 'Heals animals and mends buildings nearby.', role: 'Nanite aura', what: 'A hive of nanites that rebuild anything in reach.', help: 'Animals within 8 tiles heal 6 hp a second and every building within 8 tiles repairs 1.2% a second, raid or no raid.', tip: 'Walls next to a Nanoforge are nearly impossible to breach.' },
-  quantum:  { name: 'Quantum Spire', cat: 'defense', size: 1, age: 10, cost: { stone: 500, gold: 1100 }, hp: 1100, time: 12, r: 0.8, range: 12, dmg: 90, rate: 0.5, chain: 3, shot: 'quantum', blurb: 'Entangled bolts hit three raiders at once.', role: 'Chain defense', what: 'A spire that fires entangled bolts.', help: 'Every half second it hits up to three raiders within 12 tiles for 90 each.', tip: 'Shreds packs; pair with an Orbital Beacon for bosses.' },
-  starbeacon: { name: 'Star Beacon', cat: 'army', size: 2, age: 11, cost: { stone: 600, gold: 1500 }, hp: 1400, time: 16, r: 1.4, blurb: 'Builds free drone fighters.', role: 'Drone works', what: 'A beacon that assembles fighter drones from starlight.', help: 'Every 40 seconds a free Fighter Drone launches from it, up to 4 per beacon. Drones fly, need no housing and are rebuilt when lost.', tip: 'Several beacons give you an air force that never runs dry.' },
+  reactor:  { name: 'Fusion Reactor', cat: 'town', size: 2, age: 7, cost: { stone: 500, gold: 500 }, hp: 1200, time: 14, r: 1.4, income: { gold: 0.6, stone: 0.3, food: 0.4, alloy: 0.2 }, blurb: 'Power, and the first Alloy.', role: 'Power', what: 'A containment dome with a star inside.', help: 'Produces 0.6 gold, 0.3 stone, 0.4 food and 0.2 Alloy a second with no workers. Alloy is the new resource of the late ages: ages, buildings, units and research from here on need it. Research Fusion Lattice to boost every income further.', tip: 'Two reactors replace a whole mining economy.' },
+  refinery: { name: 'Alloy Refinery', cat: 'town', size: 1, age: 7, cost: { stone: 300, gold: 250 }, hp: 800, time: 10, r: 0.8, convert: { from: { stone: 0.3, gold: 0.1 }, to: { alloy: 0.3 } }, blurb: 'Turns stone and gold into Alloy.', role: 'Refining', what: 'Furnaces that fuse stone and gold into alloy.', help: 'Consumes 0.3 stone and 0.1 gold a second to make 0.3 Alloy, as long as you have the stone and gold. Several refineries scale this up.', tip: 'Deep Quarrying and Trade Routes feed it.' },
+  collider: { name: 'Collider', cat: 'town', size: 2, age: 10, cost: { stone: 500, gold: 600, alloy: 300 }, hp: 1100, time: 14, r: 1.4, convert: { from: { alloy: 0.4, gold: 0.2 }, to: { anti: 0.15 } }, blurb: 'Makes Antimatter from Alloy and gold.', role: 'Physics', what: 'A ring that smashes alloy into antimatter.', help: 'Consumes 0.4 Alloy and 0.2 gold a second to make 0.15 Antimatter, the rarest resource. Quantum and Stellar wonders need it.', tip: 'Build two; the Stellar Age is hungry.' },
+  orbital:  { name: 'Orbital Beacon', cat: 'defense', size: 1, age: 8, cost: { stone: 400, gold: 700, alloy: 150 }, hp: 900, time: 12, r: 0.8, range: 14, dmg: 240, rate: 7, splash: 3.2, shot: 'orbital', blurb: 'Calls down strikes from orbit.', role: 'Orbital strike', what: 'A targeting dish that talks to the satellites.', help: 'Every 7 seconds a strike lands for 240 damage in a 3.2 tile blast, out to 14 tiles. Nothing on the ground survives many of them.', tip: 'One in the middle of town reaches everything.' },
+  nanoforge: { name: 'Nanoforge', cat: 'town', size: 1, age: 9, cost: { stone: 450, gold: 800, alloy: 200 }, hp: 1000, time: 12, r: 0.8, heal: 8, mend: 0.012, blurb: 'Heals animals and mends buildings nearby.', role: 'Nanite aura', what: 'A hive of nanites that rebuild anything in reach.', help: 'Animals within 8 tiles heal 6 hp a second and every building within 8 tiles repairs 1.2% a second, raid or no raid.', tip: 'Walls next to a Nanoforge are nearly impossible to breach.' },
+  quantum:  { name: 'Quantum Spire', cat: 'defense', size: 1, age: 10, cost: { stone: 500, gold: 1100, alloy: 250, anti: 60 }, hp: 1100, time: 12, r: 0.8, range: 12, dmg: 90, rate: 0.5, chain: 3, shot: 'quantum', blurb: 'Entangled bolts hit three raiders at once.', role: 'Chain defense', what: 'A spire that fires entangled bolts.', help: 'Every half second it hits up to three raiders within 12 tiles for 90 each.', tip: 'Shreds packs; pair with an Orbital Beacon for bosses.' },
+  starbeacon: { name: 'Star Beacon', cat: 'army', size: 2, age: 11, cost: { stone: 600, gold: 1500, alloy: 300, anti: 150 }, hp: 1400, time: 16, r: 1.4, blurb: 'Builds free drone fighters.', role: 'Drone works', what: 'A beacon that assembles fighter drones from starlight.', help: 'Every 40 seconds a free Fighter Drone launches from it, up to 4 per beacon. Drones fly, need no housing and are rebuilt when lost.', tip: 'Several beacons give you an air force that never runs dry.' },
   infirmary: { name: 'Healing Hut', cat: 'town', size: 1, age: 0, cost: { wood: 55, stone: 10 }, hp: 130, time: 5, r: 0.8, heal: 5, blurb: 'Heals animals and buildings nearby.', role: 'Healing', what: 'A cosy hut with a panda healer inside.', help: 'Animals within 5 tiles heal 3 hp a second and nearby buildings are mended too. Keeps your front line alive between raids.', tip: 'Put it just behind your walls where wounded defenders gather.' },
   keep:     { name: 'Great Hall', cat: 'none', size: 3, age: 0, cost: {}, hp: 1200, time: 1, r: 2.1, drop: ['wood', 'stone', 'food', 'gold'], pop: 5, blurb: 'The heart of the clan.', role: 'Heart of the clan', what: 'Your Great Hall. If it falls, the game is lost.', help: 'Settlers drop all resources off here and new ones arrive from it. It houses 5 animals and heals those standing close. It grows tougher with each age.', tip: 'Defend it above all else. Nothing else is as hard to replace.' }
 };
@@ -78,11 +82,11 @@ const UDEF = {
   lancer: { name: 'Elk Lancer', sp: 'elk', hp: 200, speed: 2.6, dmg: 30, rate: 1.0, range: 1.4, cost: { food: 90, gold: 85 }, age: 4, blurb: 'Fast, hard-hitting cavalry.', role: 'Shock cavalry', what: 'A tall elk with a steel lance.', help: 'Quick and strong, perfect for chasing down raccoon slingers and dire wolves. At level 3 learns Stampede: a charge that knocks back every raider in its path.', tip: 'Unlocks in the Imperial Age.' },
   sage:   { name: 'Owl Sage', sp: 'owl', hp: 80, speed: 2.3, dmg: 44, rate: 1.6, range: 7.5, cost: { food: 80, gold: 140 }, age: 5, shot: 'bolt', blurb: 'Long-range bolts and a healing song.', role: 'Support caster', what: 'A wise owl with a brass staff.', help: 'Fires bolts from 7.5 tiles. At level 3 learns Hoot of Courage: every defender within 4 tiles heals 30% of its health.', tip: 'Unlocks in the Clockwork Age. Keep it behind the line.' },
   skiff:  { name: 'Sky Skiff', sp: 'fox', hp: 160, speed: 3.3, dmg: 30, rate: 0.9, range: 6.5, cost: { food: 100, gold: 230 }, age: 6, shot: 'laser', fly: true, blurb: 'A flying fox gunship.', role: 'Flying defender', what: 'A fox pilot in a hovering skiff.', help: 'Flies straight over walls, water and crowds, so it is always where you need it. Beam weapon with 6.5 tiles of reach. At level 3 learns Strafing Run: a beam sweep that hits every raider within 5 tiles.', tip: 'Needs a Sky Port. Unlocks in the Skyward Age.' },
-  mech:   { name: 'Panda Mech', sp: 'panda', hp: 460, speed: 1.9, dmg: 64, rate: 1.1, range: 1.6, cost: { food: 160, gold: 320 }, age: 7, blurb: 'A walking fortress.', role: 'Heavy mech', what: 'A panda in a fusion-powered walker.', help: 'Enormous health and crushing blows. At level 3 learns Shockwave: stamps the ground, hitting every raider within 2.5 tiles for 2x and shoving them back.', tip: 'Unlocks in the Fusion Age.' },
-  dropship: { name: 'Bear Dropship', sp: 'bear', hp: 340, speed: 2.8, dmg: 44, rate: 0.8, range: 7, cost: { food: 180, gold: 420 }, age: 8, shot: 'laser', fly: true, blurb: 'A flying gun platform.', role: 'Flying gunship', what: 'A bear pilot in an armoured dropship.', help: 'Flies, shrugs off hits and rakes raiders with beams from 7 tiles. At level 3 learns Payload: drops a bomb for 3x damage in a 3 tile blast.', tip: 'Unlocks in the Orbital Age.' },
-  swarm:  { name: 'Nano Swarm', sp: 'rabbit', hp: 140, speed: 3.4, dmg: 11, rate: 0.18, range: 4.5, cost: { food: 150, gold: 380 }, age: 9, shot: 'laser', fly: true, blurb: 'A cloud of tiny fliers.', role: 'Flying shredder', what: 'A rabbit herding a swarm of nanites.', help: 'Flies and fires five times a second. Shreds anything fast or fragile. At level 3 learns Disassemble: a burst of 8 shots at once.', tip: 'Unlocks in the Nanotech Age.' },
-  warden: { name: 'Quantum Warden', sp: 'owl', hp: 300, speed: 3.0, dmg: 85, rate: 1.0, range: 9, cost: { food: 220, gold: 600 }, age: 10, shot: 'quantum', fly: true, blurb: 'Blinks across the battlefield.', role: 'Flying striker', what: 'An owl that is never quite where you last saw it.', help: 'Flies with entangled bolts from 9 tiles. At level 3 learns Phase Shift: blinks next to the nearest raider and heals 25%.', tip: 'Unlocks in the Quantum Age.' },
-  starship: { name: 'Fox Starship', sp: 'fox', hp: 700, speed: 2.6, dmg: 140, rate: 1.2, range: 10.5, cost: { food: 260, gold: 900 }, age: 11, shot: 'orbital', fly: true, blurb: 'The pride of the fleet.', role: 'Flying capital ship', what: 'A fox captain on the bridge of a starship.', help: 'Flies, hits like an orbital strike from 10.5 tiles and takes a raid to bring down. At level 3 learns Nova: hits everything within 6 tiles for 2x.', tip: 'Unlocks in the Stellar Age.' },
+  mech:   { name: 'Panda Mech', sp: 'panda', hp: 460, speed: 1.9, dmg: 64, rate: 1.1, range: 1.6, cost: { food: 160, gold: 320, alloy: 40 }, age: 7, blurb: 'A walking fortress.', role: 'Heavy mech', what: 'A panda in a fusion-powered walker.', help: 'Enormous health and crushing blows. At level 3 learns Shockwave: stamps the ground, hitting every raider within 2.5 tiles for 2x and shoving them back.', tip: 'Unlocks in the Fusion Age.' },
+  dropship: { name: 'Bear Dropship', sp: 'bear', hp: 340, speed: 2.8, dmg: 44, rate: 0.8, range: 7, cost: { food: 180, gold: 420, alloy: 60 }, age: 8, shot: 'laser', fly: true, blurb: 'A flying gun platform.', role: 'Flying gunship', what: 'A bear pilot in an armoured dropship.', help: 'Flies, shrugs off hits and rakes raiders with beams from 7 tiles. At level 3 learns Payload: drops a bomb for 3x damage in a 3 tile blast.', tip: 'Unlocks in the Orbital Age.' },
+  swarm:  { name: 'Nano Swarm', sp: 'rabbit', hp: 140, speed: 3.4, dmg: 11, rate: 0.18, range: 4.5, cost: { food: 150, gold: 380, alloy: 80 }, age: 9, shot: 'laser', fly: true, blurb: 'A cloud of tiny fliers.', role: 'Flying shredder', what: 'A rabbit herding a swarm of nanites.', help: 'Flies and fires five times a second. Shreds anything fast or fragile. At level 3 learns Disassemble: a burst of 8 shots at once.', tip: 'Unlocks in the Nanotech Age.' },
+  warden: { name: 'Quantum Warden', sp: 'owl', hp: 300, speed: 3.0, dmg: 85, rate: 1.0, range: 9, cost: { food: 220, gold: 600, alloy: 100, anti: 20 }, age: 10, shot: 'quantum', fly: true, blurb: 'Blinks across the battlefield.', role: 'Flying striker', what: 'An owl that is never quite where you last saw it.', help: 'Flies with entangled bolts from 9 tiles. At level 3 learns Phase Shift: blinks next to the nearest raider and heals 25%.', tip: 'Unlocks in the Quantum Age.' },
+  starship: { name: 'Fox Starship', sp: 'fox', hp: 700, speed: 2.6, dmg: 140, rate: 1.2, range: 10.5, cost: { food: 260, gold: 900, alloy: 200, anti: 60 }, age: 11, shot: 'orbital', fly: true, blurb: 'The pride of the fleet.', role: 'Flying capital ship', what: 'A fox captain on the bridge of a starship.', help: 'Flies, hits like an orbital strike from 10.5 tiles and takes a raid to bring down. At level 3 learns Nova: hits everything within 6 tiles for 2x.', tip: 'Unlocks in the Stellar Age.' },
   drone:  { name: 'Fighter Drone', sp: 'fox', hp: 120, speed: 3.6, dmg: 30, rate: 0.6, range: 6, cost: {}, age: 11, shot: 'laser', fly: true, free: true, blurb: 'A free drone from the Star Beacon.', role: 'Drone fighter', what: 'An autonomous fighter the Star Beacon builds.', help: 'Launched free from a Star Beacon every 40 seconds, up to 4 per beacon. Needs no housing.', tip: 'Build beacons, not barracks, in the Stellar Age.' },
   musket: { name: 'Rabbit Musketeer', sp: 'rabbit', hp: 44, speed: 2.2, dmg: 24, rate: 1.9, range: 7, cost: { food: 45, gold: 60 }, age: 3, shot: 'bullet', blurb: 'Powder and long range.', role: 'Long-range damage', what: 'A rabbit with a flintlock.', help: 'Slow but powerful shots from 7 tiles. At level 3 learns Aimed Shot: one huge hit.', tip: 'Unlocks in the Gunpowder Age.' }
 };
@@ -123,11 +127,11 @@ const TECHS = [
   { id: 'watchfires', name: 'Watchfires', group: 'Defense', age: 1, need: null, max: 2, cost: [{ wood: 70, stone: 20 }, { wood: 120, stone: 80, gold: 40 }], role: 'Towers', what: 'Braziers on every tower top.', help: 'Every tower sees and shoots 0.5 tiles further per level.', tip: 'Half a tile is a whole extra row of raiders under fire.' },
   { id: 'repair', name: 'Rapid Repair', group: 'Defense', age: 2, need: null, max: 2, cost: [{ wood: 100, stone: 50 }, { wood: 160, stone: 120, gold: 60 }], role: 'Repair', help: 'Settlers repair buildings twice as fast per level, and at level 2 they keep repairing during a raid.', what: 'Timber frames stacked and ready.', tip: 'Walls that heal between waves of the same raid.' },
   { id: 'masonry', name: 'Masonry', group: 'Defense', age: 2, need: 'quarry', max: 3, cost: [{ stone: 100, gold: 30 }, { stone: 200, gold: 100 }, { stone: 320, gold: 220 }], role: 'Buildings', what: 'Dressed stone for every building.', help: 'Every building other than walls has +15% health per level, including the Great Hall.', tip: 'Makes towers and the Hall survive a badger ram.' },
-  { id: 'fusion', name: 'Fusion Lattice', group: 'Economy', age: 7, need: 'reactor', max: 2, cost: [{ stone: 400, gold: 600 }, { stone: 600, gold: 1000 }], role: 'Power', what: 'Lattices that spread reactor power to every workshop.', help: 'Every income (farms, markets, quarries, reactors, tending) is +25% per level.', tip: 'The economy keystone of the late ages.' },
-  { id: 'nano', name: 'Nanite Blood', group: 'Military', age: 9, need: 'nanoforge', max: 2, cost: [{ stone: 500, gold: 900 }, { stone: 700, gold: 1400 }], role: 'Regeneration', what: 'Nanites in every defender\'s veins.', help: 'Defenders regenerate 1% of their health a second per level, even in combat.', tip: 'Turns a long raid into a war of attrition you win.' },
-  { id: 'quantumcore', name: 'Quantum Cores', group: 'Military', age: 10, need: 'quantum', max: 2, cost: [{ stone: 600, gold: 1200 }, { stone: 800, gold: 1800 }], role: 'Abilities', what: 'Cores that bend time for your defenders.', help: 'Ability cooldowns are another 15% shorter per level, on top of War Banners.', tip: 'With both maxed, abilities are almost always ready.' },
-  { id: 'stellar', name: 'Stellar Forge', group: 'Military', age: 11, need: 'starbeacon', max: 3, cost: [{ stone: 700, gold: 1500 }, { stone: 900, gold: 2200 }, { stone: 1200, gold: 3000 }], role: 'Damage', what: 'Weapons forged in a captured star.', help: 'Every defender, tower and drone deals +15% damage per level.', tip: 'The last word in firepower.' },
-  { id: 'targeting', name: 'Orbital Targeting', group: 'Defense', age: 8, need: 'orbital', max: 2, cost: [{ stone: 400, gold: 700 }, { stone: 600, gold: 1100 }], role: 'Towers', what: 'Satellites that spot for every tower.', help: 'Every tower reaches 1 tile further per level, and Orbital Beacons strike 1 second sooner.', tip: 'Covers the whole town from a few pylons.' },
+  { id: 'fusion', name: 'Fusion Lattice', group: 'Economy', age: 7, need: 'reactor', max: 2, cost: [{ stone: 400, gold: 600 }, { stone: 600, gold: 1000, alloy: 120 }], role: 'Power', what: 'Lattices that spread reactor power to every workshop.', help: 'Every income (farms, markets, quarries, reactors, tending) is +25% per level.', tip: 'The economy keystone of the late ages.' },
+  { id: 'nano', name: 'Nanite Blood', group: 'Military', age: 9, need: 'nanoforge', max: 2, cost: [{ stone: 500, gold: 900, alloy: 150 }, { stone: 700, gold: 1400, alloy: 250 }], role: 'Regeneration', what: 'Nanites in every defender\'s veins.', help: 'Defenders regenerate 1% of their health a second per level, even in combat.', tip: 'Turns a long raid into a war of attrition you win.' },
+  { id: 'quantumcore', name: 'Quantum Cores', group: 'Military', age: 10, need: 'quantum', max: 2, cost: [{ stone: 600, gold: 1200, anti: 40 }, { stone: 800, gold: 1800, anti: 80 }], role: 'Abilities', what: 'Cores that bend time for your defenders.', help: 'Ability cooldowns are another 15% shorter per level, on top of War Banners.', tip: 'With both maxed, abilities are almost always ready.' },
+  { id: 'stellar', name: 'Stellar Forge', group: 'Military', age: 11, need: 'starbeacon', max: 3, cost: [{ stone: 700, gold: 1500, anti: 80 }, { stone: 900, gold: 2200, anti: 120 }, { stone: 1200, gold: 3000, anti: 180 }], role: 'Damage', what: 'Weapons forged in a captured star.', help: 'Every defender, tower and drone deals +15% damage per level.', tip: 'The last word in firepower.' },
+  { id: 'targeting', name: 'Orbital Targeting', group: 'Defense', age: 8, need: 'orbital', max: 2, cost: [{ stone: 400, gold: 700 }, { stone: 600, gold: 1100, alloy: 100 }], role: 'Towers', what: 'Satellites that spot for every tower.', help: 'Every tower reaches 1 tile further per level, and Orbital Beacons strike 1 second sooner.', tip: 'Covers the whole town from a few pylons.' },
   { id: 'beacon', name: 'Beacon Network', group: 'Defense', age: 6, need: 'laser', max: 1, cost: [{ stone: 250, gold: 450 }], role: 'Lasers', what: 'Relay lenses between the pylons.', help: 'Laser Towers reach 2 tiles further and fire 20% faster.', tip: 'A ring of networked lasers covers the whole town.' }
 ];
 const techCostAt = (t, lv) => t.cost[Math.min(lv, t.cost.length - 1)];
@@ -702,6 +706,23 @@ function buildModel(b) {
       g.add(tur); b.turret = tur;
       break;
     }
+    case 'refinery': {
+      box(g, -0.42, 0, -0.42, 0.84, 0.5, 0.84, 0x2f3b4a);
+      box(g, -0.3, 0.5, -0.3, 0.6, 0.3, 0.6, 0x1b2430);
+      [[-0.3, -0.3], [0.1, -0.3], [-0.3, 0.1], [0.1, 0.1]].forEach(([x, z]) => { box(g, x, 0.8, z, 0.2, 0.45, 0.2, 0x3b4a5a); box(g, x + 0.04, 1.25, z + 0.04, 0.12, 0.1, 0.12, 0xff7a2a, LAMP); });
+      box(g, -0.1, 0.1, 0.42, 0.2, 0.3, 0.03, 0xffb347, LAMP);
+      break;
+    }
+    case 'collider': {
+      box(g, -0.95, 0, -0.95, 1.9, 0.2, 1.9, 0x3a2a5a);
+      [[-0.9, -0.9, 1.8, 0.2], [-0.9, 0.7, 1.8, 0.2], [-0.9, -0.7, 0.2, 1.4], [0.7, -0.7, 0.2, 1.4]].forEach(([x, z, w, d]) => box(g, x, 0.2, z, w, 0.5, d, 0x22183a));
+      [[-0.85, -0.85, 1.7, 0.1], [-0.85, 0.75, 1.7, 0.1], [-0.85, -0.75, 0.1, 1.5], [0.75, -0.75, 0.1, 1.5]].forEach(([x, z, w, d]) => box(g, x, 0.5, z, w, 0.08, d, 0xb060ff, LAMP));
+      box(g, -0.3, 0.2, -0.3, 0.6, 0.9, 0.6, 0x3a2a5a); box(g, -0.15, 1.1, -0.15, 0.3, 0.3, 0.3, 0xe6c7ff, LAMP);
+      const ring = new THREE.Group(); ring.position.set(0, 0.8, 0);
+      [0, 1, 2, 3, 4, 5].forEach(k => { const a = k / 6 * Math.PI * 2; box(ring, Math.cos(a) * 0.55 - 0.05, 0, Math.sin(a) * 0.55 - 0.05, 0.1, 0.1, 0.1, 0xb060ff, LAMP); });
+      g.add(ring); (g.userData.spin = g.userData.spin || []).push(ring);
+      break;
+    }
     case 'reactor': {
       box(g, -0.95, 0, -0.95, 1.9, 0.3, 1.9, 0x2f3b4a);
       [[0.8, 0.5], [0.62, 0.4], [0.4, 0.3]].forEach(([s, h], k) => box(g, -s, 0.3 + k * 0.45, -s, s * 2, h, s * 2, k % 2 ? 0x1b2430 : 0x2f3b4a));
@@ -901,6 +922,8 @@ const ICONS = {
   tower: [[24, 30, 8, 16, 0xb9bfc5, 0x9aa1a8], [24, 16, 11, 3, 0xc6ccd1, 0xc6ccd1]],
   ballista: [[24, 30, 8, 16, 0xb9bfc5, 0x9aa1a8], [24, 16, 11, 3, 0xc6ccd1, 0xc6ccd1], [24, 12, 6, 2, 0x7b5232, 0x5a3a22]],
   cannon: [[24, 31, 10, 13, 0x6c737a, 0x6c737a], [24, 18, 12, 3, 0xe3b44e, 0xb98c2a], [24, 13, 4, 5, 0x25282c, 0x25282c]],
+  refinery: [[24, 30, 14, 8, 0x2f3b4a, 0x1b2430], [18, 20, 4, 8, 0x3b4a5a, 0x2a3340], [30, 20, 4, 8, 0x3b4a5a, 0x2a3340], [24, 14, 6, 4, 0xff7a2a, 0xff7a2a]],
+  collider: [[24, 30, 20, 8, 0x3a2a5a, 0x22183a], [24, 24, 16, 4, 0xb060ff, 0x8a3fd0], [24, 16, 8, 8, 0xe6c7ff, 0xb060ff]],
   reactor: [[24, 30, 20, 8, 0x2f3b4a, 0x1b2430], [24, 22, 12, 6, 0x2f3b4a, 0x1b2430], [24, 15, 5, 8, 0xff7a2a, 0xff7a2a]],
   orbital: [[24, 32, 10, 5, 0xe8ecf4, 0xc3d0ff], [24, 20, 4, 14, 0x2a3350, 0x1b2430], [24, 12, 16, 4, 0xe8ecf4, 0x5c6fff]],
   nanoforge: [[24, 32, 14, 5, 0x1f2a2a, 0x0f1a1a], [24, 22, 8, 12, 0x7fffd4, 0x19e6a0], [24, 17, 12, 3, 0x19e6a0, 0x19e6a0]],
@@ -927,14 +950,14 @@ function unitIconSVG(sp) {
 
 /* ===================== game state ===================== */
 const G = {
-  res: { wood: 0, stone: 0, food: 0, gold: 0 }, age: 0, t: 0, wave: 0, nextWave: 90, speed: 1, paused: true, over: false,
+  res: { wood: 0, stone: 0, food: 0, gold: 0, alloy: 0, anti: 0 }, age: 0, t: 0, wave: 0, nextWave: 90, speed: 1, paused: true, over: false,
   smith: 0, tech: {}, diff: 'normal', threat: 0, spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 0, keepB: null, kills: 0, sel: null, build: null, popCap: 5, selU: [], cmd: null
 };
 const buildings = [], units = [], enemies = [], shots = [], parts = [];
 let bid = 1;
 const TGT = { wood: 260, stone: 140, food: 200, gold: 80 };
 const dist2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
-const afford = c => Object.keys(c).every(k => G.res[k] >= c[k]);
+const afford = c => Object.keys(c).every(k => (G.res[k] || 0) >= c[k]);
 const pay = c => { for (const k in c) G.res[k] -= c[k]; };
 const dmgMult = () => (1 + 0.2 * G.smith) * (1 + 0.15 * ((G.tech && G.tech.stellar) || 0));
 const TL = id => (G.tech && G.tech[id]) || 0;   // tech level
@@ -2152,6 +2175,7 @@ function step(dt) {
   for (const b of buildings) {
     if (!b.done) continue;
     if (b.def.income) for (const k in b.def.income) G.res[k] += b.def.income[k] * dt * incomeMult(b, k);
+    if (b.def.convert) { const cv = b.def.convert, m = incomeMult(b, 'x'); let ok = true; for (const k in cv.from) if ((G.res[k] || 0) < cv.from[k] * dt) ok = false; b.converting = ok; if (ok) { for (const k in cv.from) G.res[k] -= cv.from[k] * dt; for (const k in cv.to) G.res[k] = (G.res[k] || 0) + cv.to[k] * dt * m; } }
     if (b.farmers) G.res.food += b.farmers * 0.3 * dt * incomeMult(b, 'food');
     if (b.def.mend) for (const o of buildings) if (o !== b && o.done && o.hp < o.maxhp && dist2(o, b) <= b.def.heal) { o.hp = Math.min(o.maxhp, o.hp + o.maxhp * b.def.mend * dt); if (o.hp >= o.maxhp) dropBar(o); }
     if (b.type === 'starbeacon') { b.droneT = (b.droneT || 15) - dt; if (b.droneT <= 0) { b.droneT = 40; const mine = units.filter(u => !u.dead && u.role === 'drone' && u.home2 === b.id).length; if (mine < 4) { const sp0 = validSpot(b.x + rnd(-1, 1), b.z + 1.8), u = makeUnit('drone', sp0[0], sp0[1]); u.home2 = b.id; puff(u.x, 1, u.z, 0xfff1a8, 8, 1.4, 0.6, 0.1); sfx('spawn', u.x, u.z); } } }
@@ -2234,7 +2258,7 @@ function clearEntities() {
 function newGame() {
   clearEntities();
   genWorld();
-  Object.assign(G, { res: { wood: 140, stone: 30, food: 100, gold: 20 }, age: 0, t: 0, wave: 0, nextWave: (DIFF[G.diff] || DIFF.normal).first, over: false, endless: false, smith: 0, tech: {}, threat: rnd(0, 6.28), spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 6, kills: 0, sel: null, build: null, selU: [], cmd: null });
+  Object.assign(G, { res: { wood: 140, stone: 30, food: 100, gold: 20, alloy: 0, anti: 0 }, age: 0, t: 0, wave: 0, nextWave: (DIFF[G.diff] || DIFF.normal).first, over: false, endless: false, smith: 0, tech: {}, threat: rnd(0, 6.28), spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 6, kills: 0, sel: null, build: null, selU: [], cmd: null });
   resetEnv();
   G.keepB = placeBuilding('keep', KX, KZ, true);
   for (let k = 0; k < 5; k++) makeUnit('worker', KX - 2 + k, KZ + 2.4);
@@ -2864,10 +2888,21 @@ function placeTip(x, y, above) {
 function showTip(html, x, y, above) { if (tipEl.dataset.h !== html) { tipEl.innerHTML = html; tipEl.dataset.h = html; } placeTip(x, y, above); }
 function hideTip() { tipEl.classList.remove('on'); tipEl.dataset.h = ''; }
 let tipHold = 0;
-const SWC = { wood: 'w', stone: 's', food: 'f', gold: 'g' };
+const SWC = { wood: 'w', stone: 's', food: 'f', gold: 'g', alloy: 'a', anti: 'n' };
 const costHTML = c => Object.keys(c).map(k => `<span data-r="${k}" data-n="${c[k]}"><i class="sw ${SWC[k]}"></i>${c[k]}</span>`).join('');
 const TABS = [{ id: 'town', name: 'Town' }, { id: 'defense', name: 'Defense' }, { id: 'army', name: 'Army' }, { id: 'research', name: 'Research' }];
 let curTab = 'town', cards = [];
+/* the card strip scrolls sideways: mouse wheel over it scrolls it, arrows appear when there is more */
+(function dockScroll() {
+  const el = $('cards'), wrap = $('cardsWrap');
+  const sync = () => { wrap.classList.toggle('canL', el.scrollLeft > 4); wrap.classList.toggle('canR', el.scrollLeft + el.clientWidth < el.scrollWidth - 4); };
+  el.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); el.scrollLeft += e.deltaY; } }, { passive: false });
+  el.addEventListener('scroll', sync);
+  $('cardsL').addEventListener('click', () => { el.scrollLeft -= el.clientWidth * 0.7; });
+  $('cardsR').addEventListener('click', () => { el.scrollLeft += el.clientWidth * 0.7; });
+  window.addEventListener('resize', sync);
+  setInterval(sync, 500);
+})();
 const TECH_ICON = { farm: 'farm', tools: 'camp', carts: 'camp', forestry: 'sapling', quarrying: 'quarry', trade: 'market', housing: 'house', medicine: 'infirmary', automata: 'smith', armor: 'smith', drill: 'barracks', fletching: 'tower', veterans: 'barracks', banners: 'barracks', aero: 'skyport', walls: 'wall', siegecraft: 'ballista', watchfires: 'tower', repair: 'camp', masonry: 'quarry', beacon: 'laser', smith: 'smith', fusion: 'reactor', nano: 'nanoforge', quantumcore: 'quantum', stellar: 'starbeacon', targeting: 'orbital' };
 function techIcon(id) { return iconSVG(TECH_ICON[id] || 'smith'); }
 function renderDock() {
@@ -2942,6 +2977,10 @@ function setText(id, v) { if (hud.cache[id] !== v) { hud.cache[id] = v; $(id).te
 function updateHUD() {
   setText('vWood', Math.floor(G.res.wood)); setText('vStone', Math.floor(G.res.stone));
   setText('vFood', Math.floor(G.res.food)); setText('vGold', Math.floor(G.res.gold));
+  const showA = G.age >= 7 || G.res.alloy > 0, showN = G.age >= 10 || G.res.anti > 0;
+  if (hud.cache.showA !== showA) { hud.cache.showA = showA; $('chipAlloy').style.display = showA ? '' : 'none'; }
+  if (hud.cache.showN !== showN) { hud.cache.showN = showN; $('chipAnti').style.display = showN ? '' : 'none'; }
+  if (showA) setText('vAlloy', Math.floor(G.res.alloy || 0)); if (showN) setText('vAnti', Math.floor(G.res.anti || 0));
   setText('vPop', popCount() + '/' + G.popCap); $('popChip').classList.toggle('full', popCount() >= G.popCap);
   setText('ageName', AGES[G.age].name);
   const ab = $('ageBtn');
@@ -2955,12 +2994,12 @@ function updateHUD() {
   }
   const alive = enemies.filter(e => !e.dead).length + G.spawnQ.length;
   const wb = $('waveBox');
-  if (G.wave >= TOTAL_WAVES) {
+  if (G.wave >= TOTAL_WAVES && !G.endless) {
     setText('waveTxt', alive ? `Final raid: ${alive} raiders left` : 'The valley is quiet');
     $('callBtn').style.display = 'none'; wb.classList.toggle('hot', alive > 0); $('waveBar').style.width = '0';
   } else {
-    const left = Math.max(0, Math.ceil(G.nextWave - G.t));
-    setText('waveTxt', (alive ? `Raid ${G.wave}: ${alive} raiders  ·  ` : '') + `Raid ${G.wave + 1} in ${left}s`);
+    const left = Math.max(0, Math.ceil(G.nextWave - G.t)), endlessTag = G.endless && G.wave >= TOTAL_WAVES ? ' (endless)' : '';
+    setText('waveTxt', (alive ? `Raid ${G.wave}: ${alive} raiders  ·  ` : '') + `Raid ${G.wave + 1}${endlessTag} in ${left}s`);
     $('callBtn').style.display = left > 5 ? '' : 'none';
     wb.classList.toggle('hot', alive > 0);
     const span = Math.max(1, G.nextWave - (hud.spanStart || 0));
@@ -2977,7 +3016,8 @@ function bDescribe(b) {
   if (!b.done) return `Under construction: ${Math.floor(b.progress * 100)}%`;
   if (d.range) return `Range ${d.range} tiles. Damage ${Math.round(d.dmg * (1 + 0.3 * G.age) * dmgMult())}${d.splash ? ' (area)' : ''}.`;
   if (d.pop && b.type === 'house') return 'Houses 3 animals.';
-  if (d.income) return Object.keys(d.income).map(k => `Makes ${(d.income[k] * (k === 'food' ? seasonFood() : 1)).toFixed(2)} ${k} per second${k === 'food' ? ' (' + SEASONS[ENV.season].name + ')' : ''}.`).join(' ') + (b.farmers ? ` ${b.farmers} settler${b.farmers > 1 ? 's' : ''} tending it for +${(b.farmers * 0.3 * seasonFood()).toFixed(2)} food/s.` : '');
+  if (d.convert) return `Converts ${Object.keys(d.convert.from).map(k => d.convert.from[k] + ' ' + RES_NAME[k].toLowerCase()).join(' and ')} into ${Object.keys(d.convert.to).map(k => d.convert.to[k] + ' ' + RES_NAME[k].toLowerCase()).join(', ')} every second${b.done ? (b.converting ? '. Running.' : '. Idle: missing inputs.') : '.'}`;
+  if (d.income) return Object.keys(d.income).map(k => `Makes ${(d.income[k] * (k === 'food' ? seasonFood() : 1)).toFixed(2)} ${RES_NAME[k].toLowerCase()} per second${k === 'food' ? ' (' + SEASONS[ENV.season].name + ')' : ''}.`).join(' ') + (b.farmers ? ` ${b.farmers} settler${b.farmers > 1 ? 's' : ''} tending it for +${(b.farmers * 0.3 * seasonFood()).toFixed(2)} food/s.` : '');
   if (b.type === 'keep') return `Lose this and the clan is gone. Housing: ${G.popCap}.`;
   if (d.heal) return `Heals animals and buildings within ${d.heal} tiles.`;
   return '';
@@ -3514,7 +3554,7 @@ function applySnapshot(s) {
   genWorld(s);
   const g = s.G;
   Object.assign(G, {
-    res: Object.assign({ wood: 0, stone: 0, food: 0, gold: 0 }, g.res), age: g.age, t: g.t, wave: g.wave, nextWave: g.nextWave < 0 ? Infinity : g.nextWave, over: false, endless: !!g.endless, smith: g.smith, tech: Object.assign({}, g.tech || {}), diff: DIFF[g.diff] ? g.diff : 'normal', threat: g.threat,
+    res: Object.assign({ wood: 0, stone: 0, food: 0, gold: 0, alloy: 0, anti: 0 }, g.res), age: g.age, t: g.t, wave: g.wave, nextWave: g.nextWave < 0 ? Infinity : g.nextWave, over: false, endless: !!g.endless, smith: g.smith, tech: Object.assign({}, g.tech || {}), diff: DIFF[g.diff] ? g.diff : 'normal', threat: g.threat,
     spawnQ: [], markers: [], slot: 0, birthT: g.birthT, treeT: g.treeT, kills: g.kills, sel: null, build: null, selU: [], cmd: null, speed: g.speed || 1
   });
   for (const q of g.spawnQ || []) G.spawnQ.push({ t: G.t + q.dt, kind: q.kind, x: q.x, z: q.z, mult: q.mult });
@@ -3659,7 +3699,7 @@ function diagReport() {
 $('diagCopy').addEventListener('click', () => { const txt = JSON.stringify(diagReport(), null, 1); const done = () => toast('Diagnostics copied. Paste them to the developer'); if (navigator.clipboard) navigator.clipboard.writeText(txt).then(done, () => { $('diagText').textContent = txt; }); else $('diagText').textContent = txt; });
 function openSaveModal() {
   modalWasPaused = G.paused; G.paused = true;
-  modalEl.classList.add('on'); renderSaveModal();
+  modalEl.classList.add('on'); renderSaveModal(); refreshEndlessBtn();
   { const d = diagReport(); $('diagText').textContent = `v${d.version} (${d.build}) · ${d.fps} fps · ${d.settlers} settlers, ${d.defenders} defenders, ${d.raiders} raiders · frozen animals reset: ${d.frozenResets}\n` + Object.entries(d.states).map(([k, v]) => `${k}: ${v}`).join(', '); }
 }
 function closeSaveModal(loaded) {
@@ -3669,6 +3709,12 @@ function closeSaveModal(loaded) {
 $('btnSave').addEventListener('click', () => { sfx('click'); openSaveModal(); });
 $('saveClose').addEventListener('click', () => closeSaveModal(false));
 $('menuResume').addEventListener('click', () => closeSaveModal(false));
+function refreshEndlessBtn() { $('endlessToggle').textContent = `Endless raids: ${G.endless ? 'On' : 'Off'}`; $('endlessToggle').classList.toggle('on', !!G.endless); }
+$('endlessToggle').addEventListener('click', () => {
+  G.endless = !G.endless; sfx('click'); refreshEndlessBtn();
+  if (G.endless && G.wave >= TOTAL_WAVES && G.nextWave === Infinity) G.nextWave = G.t + 45;
+  toast(G.endless ? 'Endless raids on: they keep coming after the 25th' : 'Endless raids off: the chronicle ends after raid 25');
+});
 let newArmed = 0;
 $('saveNew').addEventListener('click', () => {
   const b = $('saveNew');

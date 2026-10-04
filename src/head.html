@@ -11,7 +11,7 @@
   --chip:rgba(246,249,248,.94); --dock-a:rgba(221,230,232,.97); --dock-b:rgba(221,230,232,0);
   --toast:rgba(246,249,248,.97); --veil:rgba(214,224,227,.62);
   --go-bg:#d2eac2; --go-line:#4b8f26; --warn-bg:#f7d9d3; --warn-line:#c0432f; --hpbg:#c3d0d4;
-  --sw-wood:#b87733; --sw-stone:#7f8d96; --sw-food:#d24a52; --sw-gold:#d9a017; --sw-pop:#2f94b8;
+  --sw-wood:#b87733; --sw-stone:#7f8d96; --sw-food:#d24a52; --sw-gold:#d9a017; --sw-pop:#2f94b8; --sw-alloy:#5fa8d3; --sw-anti:#c23fb5;
   --display:'Pirata One',Georgia,serif; --body:'Alegreya Sans','Segoe UI',system-ui,sans-serif;
 }
 @media (prefers-color-scheme:dark){
@@ -21,7 +21,7 @@
     --chip:rgba(23,35,42,.92); --dock-a:rgba(15,23,25,.96); --dock-b:rgba(15,23,25,0);
     --toast:rgba(15,23,25,.94); --veil:rgba(10,16,18,.55);
     --go-bg:#3a5a2a; --go-line:#86c45e; --warn-bg:#5a2a24; --warn-line:#e8654f; --hpbg:#0b1114;
-    --sw-wood:#c98e4f; --sw-stone:#aab4bd; --sw-food:#e56b6f; --sw-gold:#f0b94a; --sw-pop:#6fc3e3;
+    --sw-wood:#c98e4f; --sw-stone:#aab4bd; --sw-food:#e56b6f; --sw-gold:#f0b94a; --sw-pop:#6fc3e3; --sw-alloy:#8fd3ff; --sw-anti:#ff6ad5;
     color-scheme:dark;
   }
 }
@@ -31,7 +31,7 @@
   --chip:rgba(23,35,42,.92); --dock-a:rgba(15,23,25,.96); --dock-b:rgba(15,23,25,0);
   --toast:rgba(15,23,25,.94); --veil:rgba(10,16,18,.55);
   --go-bg:#3a5a2a; --go-line:#86c45e; --warn-bg:#5a2a24; --warn-line:#e8654f; --hpbg:#0b1114;
-  --sw-wood:#c98e4f; --sw-stone:#aab4bd; --sw-food:#e56b6f; --sw-gold:#f0b94a; --sw-pop:#6fc3e3;
+  --sw-wood:#c98e4f; --sw-stone:#aab4bd; --sw-food:#e56b6f; --sw-gold:#f0b94a; --sw-pop:#6fc3e3; --sw-alloy:#8fd3ff; --sw-anti:#ff6ad5;
   color-scheme:dark;
 }
 html{box-sizing:border-box}
@@ -52,7 +52,7 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .chip{background:var(--chip);border:1px solid var(--line);border-radius:6px;padding:5px 10px;display:flex;align-items:center;gap:8px;min-width:0;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text)}
 .chip b{font-weight:700;min-width:2.2ch;text-align:right}
 .sw{width:11px;height:11px;border-radius:2px;display:inline-block;box-shadow:inset -2px -2px 0 rgba(0,0,0,.3),inset 1px 1px 0 rgba(255,255,255,.4);flex:none}
-.sw.w{background:var(--sw-wood)} .sw.s{background:var(--sw-stone)} .sw.f{background:var(--sw-food)} .sw.g{background:var(--sw-gold)} .sw.p{background:var(--sw-pop)}
+.sw.w{background:var(--sw-wood)} .sw.s{background:var(--sw-stone)} .sw.f{background:var(--sw-food)} .sw.g{background:var(--sw-gold)} .sw.p{background:var(--sw-pop)} .sw.a{background:var(--sw-alloy)} .sw.n{background:var(--sw-anti)}
 .agebox .nm{font-family:var(--display);font-size:20px;letter-spacing:.02em;color:var(--head)}
 .btn{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 9px;font-weight:500;color:var(--text)}
 .btn:hover:not(:disabled){border-color:var(--gold)}
@@ -77,7 +77,14 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .tab{background:transparent;border:1px solid transparent;border-radius:5px;padding:3px 12px;font-weight:700;color:var(--muted)}
 .tab.on{background:var(--panel2);border-color:var(--line);color:var(--text)}
 .hint{margin-left:auto;color:var(--muted);font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cards{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.cardsWrap{position:relative}
+.cards{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.cards::-webkit-scrollbar{height:8px} .cards::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+.cardArrow{position:absolute;top:0;bottom:6px;width:30px;border:1px solid var(--line);background:var(--chip);color:var(--head);font-size:18px;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:3;border-radius:6px;opacity:.92}
+.cardArrow.l{left:0} .cardArrow.r{right:0}
+.cardsWrap.canL .cardArrow.l,.cardsWrap.canR .cardArrow.r{display:flex}
+.cardsWrap.canL .cards{mask-image:linear-gradient(to right,transparent 0,black 34px)} .cardsWrap.canR .cards{mask-image:linear-gradient(to left,transparent 0,black 34px)} .cardsWrap.canL.canR .cards{mask-image:linear-gradient(to right,transparent 0,black 34px,black calc(100% - 34px),transparent 100%)}
+@media (pointer:coarse){.cardArrow{display:none !important} .cardsWrap .cards{mask-image:none !important}}
 .card{flex:none;width:122px;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px 8px 7px;display:flex;flex-direction:column;gap:3px;text-align:left;position:relative;color:var(--text)}
 .card:hover:not(.locked){border-color:var(--gold)}
 .card.sel{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,138,18,.4)}
@@ -207,6 +214,8 @@ body{-webkit-user-select:none;user-select:none}
   <div class="chip" title="Stone"><i class="sw s"></i><b id="vStone">0</b></div>
   <div class="chip" title="Food"><i class="sw f"></i><b id="vFood">0</b></div>
   <div class="chip" title="Gold"><i class="sw g"></i><b id="vGold">0</b></div>
+  <div class="chip" id="chipAlloy" title="Alloy (made by Reactors and Refineries)" style="display:none"><i class="sw a"></i><b id="vAlloy">0</b></div>
+  <div class="chip" id="chipAnti" title="Antimatter (made by Colliders)" style="display:none"><i class="sw n"></i><b id="vAnti">0</b></div>
   <button class="chip popchip" id="popChip" title="Animals / housing"><i class="sw p"></i><span class="lbl">Pop</span><b id="vPop">0/0</b></button>
   <div class="chip agebox"><span class="nm" id="ageName">Hamlet</span><button class="btn go" id="ageBtn">Advance</button></div>
   <div class="chip wavebox" id="waveBox"><span id="waveTxt">Raid 1 in 90s</span><button class="btn warn" id="callBtn">Call early</button><div class="bar" id="waveBar"></div></div>
@@ -243,7 +252,7 @@ body{-webkit-user-select:none;user-select:none}
 
 <div id="dock">
   <div class="tabs" id="tabs"></div>
-  <div class="cards" id="cards"></div>
+  <div class="cardsWrap" id="cardsWrap"><button class="cardArrow l" id="cardsL" aria-label="Scroll left">&#8249;</button><div class="cards" id="cards"></div><button class="cardArrow r" id="cardsR" aria-label="Scroll right">&#8250;</button></div>
 </div>
 
 <div class="veil" id="saveModal">
@@ -252,6 +261,8 @@ body{-webkit-user-select:none;user-select:none}
     <div class="ver" id="verLine"></div>
     <div class="row2" style="margin-bottom:10px"><button class="btn go" id="menuResume">Resume</button><button class="btn warn" id="saveNew">New game</button></div>
     <h3 style="margin:6px 0;font-size:15px;color:var(--head)">Difficulty</h3>
+    <div class="row2" style="margin-bottom:6px"><button class="btn" id="endlessToggle">Endless raids: Off</button></div>
+    <p class="diffHelp">Endless keeps raids coming after the 25th, each bigger than the last, for as long as the Hall stands. You can also turn it on later from the victory screen.</p>
     <div class="diffRow" id="menuDiff"></div>
     <p id="menuDiffHelp" class="diffHelp"></p>
     <details id="tips"><summary style="cursor:pointer;color:var(--head);font-weight:700">Tips for holding the valley</summary>

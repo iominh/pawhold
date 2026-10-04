@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.1.0
+- Two new resources. Alloy arrives with the Fusion Age, made by Fusion Reactors (0.2/s) and the new Alloy Refinery (turns 0.3 stone + 0.1 gold into 0.3 Alloy a second). Antimatter arrives with the Quantum Age from the new Collider (0.4 Alloy + 0.2 gold into 0.15 Antimatter). Ages 8 to 11, the late buildings, units and research cost them; their chips appear in the top bar when they matter.
+- The build and research card strip scrolls: mouse wheel over it scrolls sideways, arrow buttons appear at either end, and a thin scrollbar shows where you are (the 30-card Research tab was cut off on desktop).
+- Endless raids can be switched on from the Menu at any time (not only on the victory screen); the raid countdown keeps running after raid 25 with an (endless) tag.
+
 ## 2.0.0
 - Research tab with a 30-technology tree in four lines: Economy (Crop Rotation, Sturdy Tools, Hand Carts, Forestry, Deep Quarrying, Trade Routes, Attic Rooms, Herbal Medicine, Automatons, Fusion Lattice), Military (Sharpen Weapons, Tempered Armor, Drill Yard, Fletching, Veteran Training, War Banners, Aeronautics, Nanite Blood, Quantum Cores, Stellar Forge) and Defense (Reinforced Walls, Siegecraft, Watchfires, Rapid Repair, Masonry, Beacon Network, Orbital Targeting). Each has an age gate, often a building it needs, and one to three levels; effects apply to what you already have.
 - Five ages beyond Skyward: Fusion (Fusion Reactor: free gold, stone and food; Panda Mech with Shockwave), Orbital (Orbital Beacon: strikes from the sky; Bear Dropship with Payload), Nanotech (Nanoforge: heals animals and mends buildings in reach; Nano Swarm with Disassemble), Quantum (Quantum Spire: entangled bolts hit three raiders; Quantum Warden that blinks with Phase Shift) and Stellar (Star Beacon: builds free Fighter Drones; Fox Starship with Nova). Twelve ages in all, walls to 6000 hp, each with its own palette.
