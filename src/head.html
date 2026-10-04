@@ -1,0 +1,194 @@
+<title>Pawhold</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pirata+One&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+/* Layout: full-bleed 3D diorama, resource HUD on top, build dock along the bottom, cards float over the scene.
+   Light and dark chrome follow the viewer's theme; the 3D world switches between day and night with it. */
+:root{
+  --ink:#dde6e8; --panel:#f4f7f6; --panel2:#e1e9ea; --line:#aebfc4;
+  --text:#18262c; --muted:#52666d; --gold:#c98a12; --head:#8a5a00; --moss:#4b8f26; --danger:#c0432f;
+  --chip:rgba(246,249,248,.94); --dock-a:rgba(221,230,232,.97); --dock-b:rgba(221,230,232,0);
+  --toast:rgba(246,249,248,.97); --veil:rgba(214,224,227,.62);
+  --go-bg:#d2eac2; --go-line:#4b8f26; --warn-bg:#f7d9d3; --warn-line:#c0432f; --hpbg:#c3d0d4;
+  --sw-wood:#b87733; --sw-stone:#7f8d96; --sw-food:#d24a52; --sw-gold:#d9a017; --sw-pop:#2f94b8;
+  --display:'Pirata One',Georgia,serif; --body:'Alegreya Sans','Segoe UI',system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ink:#0f1719; --panel:#17232a; --panel2:#22333b; --line:#37505a;
+    --text:#e8f0ea; --muted:#9bb0ab; --gold:#f0b94a; --head:#f0b94a; --moss:#86c45e; --danger:#e8654f;
+    --chip:rgba(23,35,42,.92); --dock-a:rgba(15,23,25,.96); --dock-b:rgba(15,23,25,0);
+    --toast:rgba(15,23,25,.94); --veil:rgba(10,16,18,.55);
+    --go-bg:#3a5a2a; --go-line:#86c45e; --warn-bg:#5a2a24; --warn-line:#e8654f; --hpbg:#0b1114;
+    --sw-wood:#c98e4f; --sw-stone:#aab4bd; --sw-food:#e56b6f; --sw-gold:#f0b94a; --sw-pop:#6fc3e3;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#0f1719; --panel:#17232a; --panel2:#22333b; --line:#37505a;
+  --text:#e8f0ea; --muted:#9bb0ab; --gold:#f0b94a; --head:#f0b94a; --moss:#86c45e; --danger:#e8654f;
+  --chip:rgba(23,35,42,.92); --dock-a:rgba(15,23,25,.96); --dock-b:rgba(15,23,25,0);
+  --toast:rgba(15,23,25,.94); --veil:rgba(10,16,18,.55);
+  --go-bg:#3a5a2a; --go-line:#86c45e; --warn-bg:#5a2a24; --warn-line:#e8654f; --hpbg:#0b1114;
+  --sw-wood:#c98e4f; --sw-stone:#aab4bd; --sw-food:#e56b6f; --sw-gold:#f0b94a; --sw-pop:#6fc3e3;
+  color-scheme:dark;
+}
+html{box-sizing:border-box}
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(--text);font-family:var(--body);font-size:15px;line-height:1.25}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#stage{position:absolute;inset:0;touch-action:none;background:var(--ink)}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+
+.hud{position:absolute;left:0;right:0;top:0;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 0;display:flex;flex-wrap:wrap;gap:8px;pointer-events:none;align-items:flex-start}
+.hud>*{pointer-events:auto}
+.chip{background:var(--chip);border:1px solid var(--line);border-radius:6px;padding:5px 10px;display:flex;align-items:center;gap:8px;min-width:0;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text)}
+.chip b{font-weight:700;min-width:2.2ch;text-align:right}
+.sw{width:11px;height:11px;border-radius:2px;display:inline-block;box-shadow:inset -2px -2px 0 rgba(0,0,0,.3),inset 1px 1px 0 rgba(255,255,255,.4);flex:none}
+.sw.w{background:var(--sw-wood)} .sw.s{background:var(--sw-stone)} .sw.f{background:var(--sw-food)} .sw.g{background:var(--sw-gold)} .sw.p{background:var(--sw-pop)}
+.agebox .nm{font-family:var(--display);font-size:20px;letter-spacing:.02em;color:var(--head)}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 9px;font-weight:500;color:var(--text)}
+.btn:hover:not(:disabled){border-color:var(--gold)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.go{background:var(--go-bg);border-color:var(--go-line)}
+.btn.warn{background:var(--warn-bg);border-color:var(--warn-line)}
+.wavebox{position:relative;overflow:hidden}
+.wavebox .bar{position:absolute;left:0;bottom:0;height:3px;background:var(--danger);width:0}
+.wavebox.hot{border-color:var(--danger)}
+.ctrls{gap:6px;padding:4px 6px}
+
+#info{position:absolute;right:16px;top:calc(62px + env(safe-area-inset-top,0px));width:210px;background:var(--chip);border:1px solid var(--line);border-radius:8px;padding:10px;display:none;flex-direction:column;gap:8px}
+#info.on{display:flex}
+#info h3{margin:0;font-family:var(--display);font-weight:400;font-size:21px;color:var(--head)}
+#info p{margin:0;color:var(--muted);font-size:13px}
+.hpbar{height:7px;background:var(--hpbg);border-radius:4px;overflow:hidden}
+.hpbar i{display:block;height:100%;background:var(--moss);width:100%}
+#info .row{display:flex;gap:6px;flex-wrap:wrap}
+
+#dock{position:absolute;left:0;right:0;bottom:0;padding:8px 16px calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(to top,var(--dock-a) 70%,var(--dock-b));display:flex;flex-direction:column;gap:6px}
+.tabs{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.tab{background:transparent;border:1px solid transparent;border-radius:5px;padding:3px 12px;font-weight:700;color:var(--muted)}
+.tab.on{background:var(--panel2);border-color:var(--line);color:var(--text)}
+.hint{margin-left:auto;color:var(--muted);font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cards{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.card{flex:none;width:122px;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px 8px 7px;display:flex;flex-direction:column;gap:3px;text-align:left;position:relative;color:var(--text)}
+.card:hover:not(.locked){border-color:var(--gold)}
+.card.sel{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,138,18,.4)}
+.card.locked{opacity:.5}
+.card .ic{height:40px;display:flex;align-items:center;justify-content:center}
+.card .ic svg{height:40px;width:auto}
+.card .nm{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .cs{display:flex;gap:6px;flex-wrap:wrap;font-size:12px;font-variant-numeric:tabular-nums}
+.card .cs span{display:flex;align-items:center;gap:3px}
+.card .cs .no{color:var(--danger)}
+.card .lk{position:absolute;right:6px;top:5px;font-size:11px;color:var(--head);font-weight:700}
+
+#toast{position:absolute;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 32px);background:var(--toast);color:var(--text);border:1px solid var(--gold);border-radius:6px;padding:7px 14px;opacity:0;transition:opacity .25s;pointer-events:none;text-align:center}
+#toast.on{opacity:1}
+#toast.bad{border-color:var(--danger)}
+
+.veil{position:absolute;inset:0;background:var(--veil);display:none;align-items:center;justify-content:center;padding:16px;z-index:5}
+.veil.on{display:flex}
+.sheet{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:22px 24px;max-width:460px;width:100%;max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.sheet h1{margin:0;font-family:var(--display);font-weight:400;font-size:46px;line-height:1;color:var(--head)}
+.sheet h2{margin:0;font-family:var(--display);font-weight:400;font-size:36px;line-height:1;color:var(--head)}
+.sheet p{margin:0;max-width:62ch}
+.sheet ul{margin:0;padding-left:18px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+.sheet .btn{align-self:flex-start;padding:7px 18px;font-size:17px}
+
+html,body{overscroll-behavior:none}
+#tip{position:fixed;z-index:30;max-width:290px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.35;box-shadow:0 6px 22px rgba(0,0,0,.28);pointer-events:none;display:none;flex-direction:column;gap:5px}
+#tip.on{display:flex}
+#tip b{font-family:var(--display);font-weight:400;font-size:19px;color:var(--head);line-height:1}
+#tip .role{font-style:normal;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--moss)}
+#tip p{margin:0}
+#tip .help strong{color:var(--head)}
+#tip .tipx{color:var(--muted);font-style:italic}
+#tip .st{display:flex;flex-wrap:wrap;gap:4px 10px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;border-top:1px solid var(--line);padding-top:5px}
+#tip .lockn{color:var(--danger);font-weight:700}
+#info .role{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--moss);margin-top:-6px}
+#info .hpbar.xp{height:5px}
+#info .hpbar.xp i{background:var(--gold);width:0}
+#info .btn.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,138,18,.4)}
+#info .btn[disabled]{opacity:.5}
+#info{max-height:calc(100vh - 230px);overflow:auto}
+#marquee{position:fixed;border:1px dashed var(--gold);background:rgba(240,185,74,.14);pointer-events:none;display:none;z-index:20}
+
+@media (max-width:640px){
+  .hint{display:none}
+  .card{width:108px}
+  .agebox .nm{font-size:17px}
+}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+
+<div id="stage"></div>
+
+<div class="hud">
+  <div class="chip" title="Wood"><i class="sw w"></i><b id="vWood">0</b></div>
+  <div class="chip" title="Stone"><i class="sw s"></i><b id="vStone">0</b></div>
+  <div class="chip" title="Food"><i class="sw f"></i><b id="vFood">0</b></div>
+  <div class="chip" title="Gold"><i class="sw g"></i><b id="vGold">0</b></div>
+  <div class="chip" title="Animals / housing"><i class="sw p"></i><b id="vPop">0/0</b></div>
+  <div class="chip agebox"><span class="nm" id="ageName">Hamlet</span><button class="btn go" id="ageBtn">Advance</button></div>
+  <div class="chip wavebox" id="waveBox"><span id="waveTxt">Raid 1 in 90s</span><button class="btn warn" id="callBtn">Call early</button><div class="bar" id="waveBar"></div></div>
+  <div class="chip ctrls">
+    <button class="btn" id="btnPause" aria-label="Pause">Pause</button>
+    <button class="btn" id="btnSpeed" aria-label="Game speed">1x</button>
+    <button class="btn" id="btnRotL" aria-label="Rotate left">&#8634;</button>
+    <button class="btn" id="btnRotR" aria-label="Rotate right">&#8635;</button>
+    <button class="btn" id="btnArmy" aria-label="Select all defenders">Army</button>
+  </div>
+  <div class="chip ctrls">
+    <button class="btn" id="btnTheme" aria-label="Theme">Theme: Auto</button>
+    <button class="btn" id="btnWeather" aria-label="Weather">Weather: Clear</button>
+    <button class="btn" id="btnSound" aria-label="Sound">Sound: On</button>
+  </div>
+</div>
+
+<div id="info">
+  <h3 id="infoTitle">Building</h3>
+  <div class="role" id="infoRole"></div>
+  <div class="hpbar"><i id="infoHp"></i></div>
+  <div class="hpbar xp" id="infoXpBox"><i id="infoXp"></i></div>
+  <p id="infoText"></p>
+  <p id="infoHelp"></p>
+  <div class="row" id="infoBtns"></div>
+</div>
+
+<div id="dock">
+  <div class="tabs" id="tabs"></div>
+  <div class="cards" id="cards"></div>
+</div>
+
+<div id="toast"></div>
+<div id="tip" role="tooltip"></div>
+<div id="marquee"></div>
+
+<div class="veil on" id="intro">
+  <div class="sheet">
+    <h1>Pawhold</h1>
+    <p>A clan of foxes, pandas, rabbits and bears settles a green valley. Raise a medieval town, wall it in, and hold it against wolves, boars and badger rams as your age advances from thatch to cannon.</p>
+    <ul>
+      <li>Settlers gather wood, stone, berries and gold on their own, and build whatever you place.</li>
+      <li>Pick a building below, then click the ground. Drag to pan, right-drag or the arrows to turn, scroll to zoom.</li>
+      <li>Hover any build card, or any building in the valley, to see its role and how it helps.</li>
+      <li>Click an animal to select it (shift-drag boxes several, or press Army). Right-click to move, attack or send settlers to work. Defenders level up from kills and learn an ability at level 3.</li>
+      <li>Hurt animals heal near the Great Hall and Healing Huts. Idle settlers repair damaged buildings once a raid is over.</li>
+      <li>Walls and towers hold raiders where your archers can reach them. Raids grow every minute or so.</li>
+      <li>The valley follows your light or dark theme, with rain, storms, snow and fog rolling through. Use the Theme and Weather buttons to choose your own.</li>
+      <li>Survive 15 raids to complete the chronicle.</li>
+    </ul>
+    <button class="btn go" id="startBtn">Begin the chronicle</button>
+  </div>
+</div>
+
+<div class="veil" id="endScreen">
+  <div class="sheet">
+    <h2 id="endTitle">Chronicle</h2>
+    <p id="endText"></p>
+    <button class="btn go" id="againBtn">Settle a new valley</button>
+  </div>
+</div>
