@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.2
+- A big "Stop building" button appears above the dock whenever a building is selected for placement, so build mode is easy to leave on touch screens.
+
 ## 1.2.1
 - Mobile: bigger tap area for selecting animals, more forgiving tap versus drag detection, momentum when you flick-pan, two-finger drag to pan while pinching, and on-screen + / - zoom buttons.
 

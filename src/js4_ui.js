@@ -117,7 +117,7 @@ function onCard(it) {
   } else if (it.kindOf === 'u') { trainUnit(it.id); }
   else if (it.id === 'smith') upgradeSmith();
   else researchTech(it.id);
-  updateDock(true);
+  updateDock(true); syncBuildCancel();
 }
 function updateDock(force) {
   for (const c of cards) {
@@ -200,7 +200,12 @@ function orderState(u) {
   if (u.order) return { move: 'Moving', amove: 'Attack-moving', attack: 'Attacking a target' }[u.order.type];
   return u.hold ? 'Holding position' : u.tgt ? 'Fighting' : 'Guarding';
 }
+const buildCancelEl = $('buildCancel');
+function cancelBuild() { G.build = null; ghost.visible = false; updateDock(true); sfx('click'); syncBuildCancel(); }
+function syncBuildCancel() { const on = !!G.build && !G.over; buildCancelEl.classList.toggle('on', on); if (on) buildCancelEl.textContent = `\u2715 Stop building ${BDEF[G.build].name}`; }
+buildCancelEl.addEventListener('click', cancelBuild);
 function updateInfo() {
+  syncBuildCancel();
   const el = $('info'), b = G.sel;
   const us = G.selU;
   if (b && !b.dead) return updateBuildingInfo(el, b);
