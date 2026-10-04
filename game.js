@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.6.0', GAME_BUILD = 'ac8567a';
+const GAME_VERSION = '1.6.1', GAME_BUILD = '8786280';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 15;
@@ -67,7 +67,15 @@ const SMITH_COST = [{ gold: 80, stone: 40 }, { gold: 160, stone: 90 }, { gold: 3
 /* ===================== renderer, scene, light ===================== */
 const stageEl = document.getElementById('stage');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio || 1, 1.75), 2.5));  // supersample on low-dpi screens to smooth jagged voxel edges
+const COARSE = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+const QUALITY = { pr: 1, pixelBudget: COARSE ? 2.6e6 : 6.5e6, maxPr: COARSE ? 2 : 2.5, minPr: 0.75, ema: 16, adjustT: 0 };
+function targetPixelRatio() {   // supersample on sharp desktops, but cap total pixels so phones keep a smooth frame rate
+  const w = stageEl.clientWidth || window.innerWidth, h = stageEl.clientHeight || window.innerHeight, dpr = window.devicePixelRatio || 1;
+  const want = COARSE ? dpr : Math.max(dpr, 1.75);
+  return clamp(Math.min(want, Math.sqrt(QUALITY.pixelBudget / Math.max(1, w * h))), QUALITY.minPr, QUALITY.maxPr);
+}
+QUALITY.pr = targetPixelRatio();
+renderer.setPixelRatio(QUALITY.pr);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 stageEl.appendChild(renderer.domElement);
@@ -80,13 +88,14 @@ const sun = new THREE.DirectionalLight(AGES[0].sun, AGES[0].sunI);
 sun.position.set(KX + 26, 46, KZ + 18);
 sun.target.position.set(KX, 0, KZ);
 sun.castShadow = true;
-sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.mapSize.set(COARSE ? 2048 : 4096, COARSE ? 2048 : 4096);
 Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 140 });
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
 scene.add(hemi, sun, sun.target);
 
 function resize() {
   const w = stageEl.clientWidth || window.innerWidth, h = stageEl.clientHeight || window.innerHeight;
+  QUALITY.pr = Math.min(QUALITY.pr, targetPixelRatio()); renderer.setPixelRatio(QUALITY.pr);
   renderer.setSize(w, h, false);
   { const dk = document.getElementById('dock'); if (dk) document.documentElement.style.setProperty('--dockh', dk.offsetHeight + 'px'); }
   camera.aspect = w / h;
@@ -2915,11 +2924,27 @@ $('callBtn').addEventListener('click', () => { if (!G.over && !G.paused) callEar
 
 /* ===================== main loop ===================== */
 let last = performance.now(), uiT = 0;
+const SIM_DT = 0.05;
+function adaptQuality(frameMs, dt) {   // if frames are slow for a while, drop render resolution a notch; if comfortably fast, creep back up
+  QUALITY.ema += (frameMs - QUALITY.ema) * 0.08;
+  QUALITY.adjustT -= dt;
+  if (QUALITY.adjustT > 0) return;
+  const cap = targetPixelRatio();
+  if (QUALITY.ema > 42 && QUALITY.pr > QUALITY.minPr) { QUALITY.pr = Math.max(QUALITY.minPr, QUALITY.pr - 0.25); renderer.setPixelRatio(QUALITY.pr); QUALITY.adjustT = 2.5; }
+  else if (QUALITY.ema < 22 && QUALITY.pr < cap) { QUALITY.pr = Math.min(cap, QUALITY.pr + 0.25); renderer.setPixelRatio(QUALITY.pr); QUALITY.adjustT = 4; }
+  else QUALITY.adjustT = 1;
+}
 function frame(now) {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.05, (now - last) / 1000);
+  const elapsed = Math.min(0.25, Math.max(0, (now - last) / 1000));
   last = now;
-  if (!G.paused && !G.over) for (let k = 0; k < G.speed; k++) step(dt);
+  adaptQuality(elapsed * 1000, elapsed);
+  // fixed-step simulation that catches up after a slow frame, so the game keeps real-time pace on phones
+  const dt = Math.min(SIM_DT, elapsed);
+  if (!G.paused && !G.over) {
+    let rem = elapsed * G.speed, steps = 0;
+    while (rem > 0.0005 && steps < 6) { const h = Math.min(SIM_DT, rem); step(h); rem -= h; steps++; }
+  }
   const adt = G.paused ? 0 : dt * G.speed;
   camHoldTick(dt); panKeys(dt); applyCam();
   updateEnv(dt, now); updateFx(dt, now); audioUpdate(dt); autosaveTick(dt);

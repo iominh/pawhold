@@ -619,11 +619,27 @@ $('callBtn').addEventListener('click', () => { if (!G.over && !G.paused) callEar
 
 /* ===================== main loop ===================== */
 let last = performance.now(), uiT = 0;
+const SIM_DT = 0.05;
+function adaptQuality(frameMs, dt) {   // if frames are slow for a while, drop render resolution a notch; if comfortably fast, creep back up
+  QUALITY.ema += (frameMs - QUALITY.ema) * 0.08;
+  QUALITY.adjustT -= dt;
+  if (QUALITY.adjustT > 0) return;
+  const cap = targetPixelRatio();
+  if (QUALITY.ema > 42 && QUALITY.pr > QUALITY.minPr) { QUALITY.pr = Math.max(QUALITY.minPr, QUALITY.pr - 0.25); renderer.setPixelRatio(QUALITY.pr); QUALITY.adjustT = 2.5; }
+  else if (QUALITY.ema < 22 && QUALITY.pr < cap) { QUALITY.pr = Math.min(cap, QUALITY.pr + 0.25); renderer.setPixelRatio(QUALITY.pr); QUALITY.adjustT = 4; }
+  else QUALITY.adjustT = 1;
+}
 function frame(now) {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.05, (now - last) / 1000);
+  const elapsed = Math.min(0.25, Math.max(0, (now - last) / 1000));
   last = now;
-  if (!G.paused && !G.over) for (let k = 0; k < G.speed; k++) step(dt);
+  adaptQuality(elapsed * 1000, elapsed);
+  // fixed-step simulation that catches up after a slow frame, so the game keeps real-time pace on phones
+  const dt = Math.min(SIM_DT, elapsed);
+  if (!G.paused && !G.over) {
+    let rem = elapsed * G.speed, steps = 0;
+    while (rem > 0.0005 && steps < 6) { const h = Math.min(SIM_DT, rem); step(h); rem -= h; steps++; }
+  }
   const adt = G.paused ? 0 : dt * G.speed;
   camHoldTick(dt); panKeys(dt); applyCam();
   updateEnv(dt, now); updateFx(dt, now); audioUpdate(dt); autosaveTick(dt);

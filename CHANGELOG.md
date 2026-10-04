@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.6.1
+- Phones no longer run the game in slow motion. The renderer was drawing at up to 2.5x resolution with a 4096 shadow map on every device, and on slow frames the simulation silently dropped time, so animals crawled or seemed to stand still. Render resolution is now capped by a pixel budget (lower on touch devices, 2048 shadows there), adapts down when frames get slow and back up when they are fast, and the simulation catches up after a slow frame so the game keeps real-time pace.
+
 ## 1.6.0
 - Difficulty: Gentle, Normal and Hard, chosen on the start screen and changeable any time from the Menu (applies from the next raid). Hard is the old pace. Normal is now easier: the first raid comes at 2 minutes instead of 1.5, raids are 15% smaller and slightly weaker, with longer breaks. Gentle has 35% fewer raiders, 20% weaker, and up to 100 seconds between raids. Your choice is remembered and stored in saves.
 - Tips: a "Tips for holding the valley" list in the Menu with nine practical pointers (housing, drop-offs, first defenders, walls and kill zones, boss raids, gold).

@@ -66,7 +66,15 @@ const SMITH_COST = [{ gold: 80, stone: 40 }, { gold: 160, stone: 90 }, { gold: 3
 /* ===================== renderer, scene, light ===================== */
 const stageEl = document.getElementById('stage');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(Math.max(window.devicePixelRatio || 1, 1.75), 2.5));  // supersample on low-dpi screens to smooth jagged voxel edges
+const COARSE = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+const QUALITY = { pr: 1, pixelBudget: COARSE ? 2.6e6 : 6.5e6, maxPr: COARSE ? 2 : 2.5, minPr: 0.75, ema: 16, adjustT: 0 };
+function targetPixelRatio() {   // supersample on sharp desktops, but cap total pixels so phones keep a smooth frame rate
+  const w = stageEl.clientWidth || window.innerWidth, h = stageEl.clientHeight || window.innerHeight, dpr = window.devicePixelRatio || 1;
+  const want = COARSE ? dpr : Math.max(dpr, 1.75);
+  return clamp(Math.min(want, Math.sqrt(QUALITY.pixelBudget / Math.max(1, w * h))), QUALITY.minPr, QUALITY.maxPr);
+}
+QUALITY.pr = targetPixelRatio();
+renderer.setPixelRatio(QUALITY.pr);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 stageEl.appendChild(renderer.domElement);
@@ -79,13 +87,14 @@ const sun = new THREE.DirectionalLight(AGES[0].sun, AGES[0].sunI);
 sun.position.set(KX + 26, 46, KZ + 18);
 sun.target.position.set(KX, 0, KZ);
 sun.castShadow = true;
-sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.mapSize.set(COARSE ? 2048 : 4096, COARSE ? 2048 : 4096);
 Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 140 });
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
 scene.add(hemi, sun, sun.target);
 
 function resize() {
   const w = stageEl.clientWidth || window.innerWidth, h = stageEl.clientHeight || window.innerHeight;
+  QUALITY.pr = Math.min(QUALITY.pr, targetPixelRatio()); renderer.setPixelRatio(QUALITY.pr);
   renderer.setSize(w, h, false);
   { const dk = document.getElementById('dock'); if (dk) document.documentElement.style.setProperty('--dockh', dk.offsetHeight + 'px'); }
   camera.aspect = w / h;
