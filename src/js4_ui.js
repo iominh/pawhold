@@ -151,7 +151,7 @@ function setText(id, v) { if (hud.cache[id] !== v) { hud.cache[id] = v; $(id).te
 function updateHUD() {
   setText('vWood', Math.floor(G.res.wood)); setText('vStone', Math.floor(G.res.stone));
   setText('vFood', Math.floor(G.res.food)); setText('vGold', Math.floor(G.res.gold));
-  setText('vPop', popCount() + '/' + G.popCap);
+  setText('vPop', popCount() + '/' + G.popCap); $('popChip').classList.toggle('full', popCount() >= G.popCap);
   setText('ageName', AGES[G.age].name);
   const ab = $('ageBtn');
   if (G.age >= 3) { ab.disabled = true; setText('ageBtn', 'Max age'); $('ageCost').innerHTML = ''; }
@@ -186,7 +186,7 @@ function bDescribe(b) {
   if (!b.done) return `Under construction: ${Math.floor(b.progress * 100)}%`;
   if (d.range) return `Range ${d.range} tiles. Damage ${Math.round(d.dmg * (1 + 0.3 * G.age) * dmgMult())}${d.splash ? ' (area)' : ''}.`;
   if (d.pop && b.type === 'house') return 'Houses 3 animals.';
-  if (d.income) return Object.keys(d.income).map(k => `Makes ${(d.income[k] * (k === 'food' ? seasonFood() : 1)).toFixed(2)} ${k} per second${k === 'food' ? ' (' + SEASONS[ENV.season].name + ')' : ''}.`).join(' ');
+  if (d.income) return Object.keys(d.income).map(k => `Makes ${(d.income[k] * (k === 'food' ? seasonFood() : 1)).toFixed(2)} ${k} per second${k === 'food' ? ' (' + SEASONS[ENV.season].name + ')' : ''}.`).join(' ') + (b.farmers ? ` ${b.farmers} settler${b.farmers > 1 ? 's' : ''} tending it for +${(b.farmers * 0.3 * seasonFood()).toFixed(2)} food/s.` : '');
   if (b.type === 'keep') return `Lose this and the clan is gone. Housing: ${G.popCap}.`;
   if (d.heal) return `Heals animals and buildings within ${d.heal} tiles.`;
   return '';
@@ -202,7 +202,7 @@ const sumBtn = (label, fn, cls, dis) => {
 };
 let infoSig = '';
 function orderState(u) {
-  if (u.role === 'worker') return { goto: 'Walking where you sent it', toNode: 'Heading to gather', gather: 'Gathering', toDrop: 'Carrying a load', toSite: 'Heading to build', build: 'Building', toRepair: 'Heading to repair', repair: 'Repairing', flee: 'Running for cover' }[u.state] || 'Idle';
+  if (u.role === 'worker') return { goto: 'Walking where you sent it', toNode: 'Heading to gather', gather: 'Gathering', toDrop: 'Carrying a load', toSite: 'Heading to build', build: 'Building', toRepair: 'Heading to repair', repair: 'Repairing', toFarm: 'Heading to tend a farm', farm: 'Tending a farm', flee: 'Running for cover' }[u.state] || 'Idle';
   if (u.order) return { move: 'Moving', amove: 'Attack-moving', attack: 'Attacking a target' }[u.order.type];
   return u.hold ? 'Holding position' : u.tgt ? 'Fighting' : 'Guarding';
 }
@@ -603,6 +603,14 @@ function refreshDiffButtons() {
 }
 try { const d = localStorage.getItem('pawhold.diff'); if (DIFF[d]) setDifficulty(d, true); } catch (e) { /* ignore */ }
 refreshDiffButtons();
+function popTip() {
+  const w = units.filter(u => !u.dead && u.role === 'worker').length, s = units.filter(u => !u.dead && u.role !== 'worker').length, houses = buildings.filter(b => b.type === 'house' && b.done).length;
+  const full = popCount() >= G.popCap;
+  return `<b>Population ${popCount()} / ${G.popCap}</b><i class="role">${w} settlers, ${s} defenders</i><p class="what">Housing: the Great Hall holds ${BDEF.keep.pop} and each finished Burrow House ${BDEF.house.pop} more (${houses} house${houses === 1 ? '' : 's'} so far).</p><p class="help"><strong>How it grows:</strong> a new settler walks out of the Hall about every 11 seconds while there is room and you have 25 food. Trained defenders use housing too.</p><p class="tipx">${full ? 'Housing is full: nobody new will come until you build another Burrow House.' : 'Settlers also level up by working and can be promoted to Elite at level 5.'}</p>`;
+}
+$('popChip').addEventListener('click', e => { sfx('click'); showTip(popTip(), e.clientX || 60, (e.clientY || 60) + 14, false); tipHold = performance.now() + 4500; });
+$('popChip').addEventListener('mouseenter', e => { if (!matchMedia('(pointer:coarse)').matches) showTip(popTip(), e.clientX, e.clientY + 14, false); });
+$('popChip').addEventListener('mouseleave', () => { if (!tipHold) hideTip(); });
 $('btnArmy').addEventListener('click', () => { const army = units.filter(u => !u.dead && u.role !== 'worker'); if (!army.length) return toast('No defenders yet. Build a Barracks and train some', true); selectUnits(army, false); });
 $('btnMenu').addEventListener('click', () => { const hd = document.querySelector('.hud'); hd.classList.toggle('menu'); $('btnMenu').setAttribute('aria-expanded', hd.classList.contains('menu')); sfx('click'); });
 $('btnPause').addEventListener('click', () => { if (!G.over && !$('intro').classList.contains('on')) G.paused = !G.paused; });

@@ -45,6 +45,9 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
 .hud{position:absolute;left:0;right:0;top:0;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 0;display:flex;flex-wrap:wrap;gap:8px;pointer-events:none;align-items:flex-start}
 .hud>*{pointer-events:auto}
+.popchip{cursor:pointer;font:inherit}
+.popchip .lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.popchip.full b{color:var(--danger)}
 .chip{background:var(--chip);border:1px solid var(--line);border-radius:6px;padding:5px 10px;display:flex;align-items:center;gap:8px;min-width:0;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text)}
 .chip b{font-weight:700;min-width:2.2ch;text-align:right}
 .sw{width:11px;height:11px;border-radius:2px;display:inline-block;box-shadow:inset -2px -2px 0 rgba(0,0,0,.3),inset 1px 1px 0 rgba(255,255,255,.4);flex:none}
@@ -203,7 +206,7 @@ body{-webkit-user-select:none;user-select:none}
   <div class="chip" title="Stone"><i class="sw s"></i><b id="vStone">0</b></div>
   <div class="chip" title="Food"><i class="sw f"></i><b id="vFood">0</b></div>
   <div class="chip" title="Gold"><i class="sw g"></i><b id="vGold">0</b></div>
-  <div class="chip" title="Animals / housing"><i class="sw p"></i><b id="vPop">0/0</b></div>
+  <button class="chip popchip" id="popChip" title="Animals / housing"><i class="sw p"></i><span class="lbl">Pop</span><b id="vPop">0/0</b></button>
   <div class="chip agebox"><span class="nm" id="ageName">Hamlet</span><button class="btn go" id="ageBtn">Advance</button></div>
   <div class="chip wavebox" id="waveBox"><span id="waveTxt">Raid 1 in 90s</span><button class="btn warn" id="callBtn">Call early</button><div class="bar" id="waveBar"></div></div>
   <div class="chip ctrls">

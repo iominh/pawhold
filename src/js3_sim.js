@@ -139,6 +139,25 @@ function floodFromKeep(block) {
   }
   return seen;
 }
+/* Reachability from the Great Hall, cached per map change. Settlers only take jobs they can reach, and anything sealed in a pocket is stepped out. */
+const REACH = { ver: -1, map: null };
+function reachMap() {
+  if (REACH.ver !== NAV.ver || !REACH.map) { REACH.map = floodFromKeep(new Set()); REACH.ver = NAV.ver; }
+  return REACH.map;
+}
+const reachAt = (i, j) => inMap(i, j) && reachMap()[i * MAP + j] === 1;
+function reachableNear(o) {   // a node tile itself, or any tile touching a building's footprint
+  if (o.cells) { for (const [i, j] of o.cells) for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) if (reachAt(i + di, j + dj)) return true; return false; }
+  return reachAt(Math.round(o.x), Math.round(o.z)) || reachAt(o.i, o.j);
+}
+function escapePocket(u) {   // stand on a tile the Hall can reach, as close as possible to where the animal is now
+  const ci = Math.round(u.x), cj = Math.round(u.z);
+  for (let r = 1; r <= 10; r++) for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) {
+    if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue;
+    if (reachAt(ci + di, cj + dj)) { u.x = ci + di; u.z = cj + dj; u.path = null; u.stuckT = 0; return true; }
+  }
+  const sp = validSpot(KX, KZ + 2.6); u.x = sp[0]; u.z = sp[1]; u.path = null; return true;
+}
 function wouldTrap(fp) {
   const set = new Set(fp.map(([i, j]) => i * MAP + j));
   let near = false;   // quick reject: a building that touches nothing cannot enclose anything
@@ -210,7 +229,7 @@ function destroyBuilding(b, silent) {
   puff(b.x, b.y + 0.5, b.z, 0x9a8f80, 16, 2.4, 0.9, 0.22); puff(b.x, b.y + 0.5, b.z, 0x6b4a2f, 8, 2, 0.8, 0.18);
   if (b.def.wall) refreshWalls(b.i, b.j);
   if (G.sel === b) G.sel = null;
-  for (const u of units) { if (u.site === b) { u.site = null; u.state = 'idle'; } if (u.rep === b) { u.rep = null; u.state = 'idle'; } }
+  for (const u of units) { if (u.site === b) { u.site = null; u.state = 'idle'; } if (u.rep === b) { u.rep = null; u.state = 'idle'; } if (u.farm === b) { u.farm = null; u.state = 'idle'; } }
   for (const e of enemies) { if (e.tgt === b) e.tgt = null; if (e.hitB === b) { e.hitB = null; e.blockT = 0; } }
   if (b === G.keepB) endGame(false);
   else if (!silent) toast(b.def.name + ' was destroyed', true);
@@ -379,6 +398,7 @@ function unstick(u) {
   if (u.role !== 'worker' && u.team === 0) { u.tgt = null; u.giveUp = G.t + 3; if (u.order && u.order.type === 'move') u.order = null; }
 }
 function watchdog(u, dt) {
+  if (u.team === 0 && !reachAt(Math.round(u.x), Math.round(u.z))) { escapePocket(u); u.wdT = 0; return; }
   if (blockedAt(u.x, u.z, u.team === 0 ? 0 : 1, null) === true || (u.team === 0 && blockedAt(u.x, u.z, 0, null))) {   // standing inside a building or cliff: step out to the nearest free spot
     const sp = validSpot(u.x, u.z); u.x = sp[0]; u.z = sp[1]; u.path = null; u.wdT = 0; return;
   }
@@ -614,11 +634,21 @@ function releaseWorker(u) {
   if (u.node) { u.node.workers = Math.max(0, u.node.workers - 1); u.node = null; }
   if (u.site) { u.site.builders = Math.max(0, u.site.builders - 1); u.site = null; }
   if (u.rep) { u.rep.repairers = Math.max(0, (u.rep.repairers || 1) - 1); u.rep = null; }
+  if (u.farm) { u.farm.farmers = Math.max(0, (u.farm.farmers || 1) - 1); u.farm = null; }
 }
 function findSite(u) {
   let best = null, bd = 40;
   for (const b of buildings) {
-    if (b.done || b.builders >= (b.def.size >= 2 ? 3 : 2) || (u.badSite === b && G.t < u.badUntil)) continue;
+    if (b.done || b.builders >= (b.def.size >= 2 ? 3 : 2) || (u.badSite === b && G.t < u.badUntil) || !reachableNear(b)) continue;
+    const d = Math.hypot(b.x - u.x, b.z - u.z);
+    if (d < bd) { bd = d; best = b; }
+  }
+  return best;
+}
+function findFarm(u) {
+  let best = null, bd = 1e9;
+  for (const b of buildings) {
+    if (b.type !== 'farm' || !b.done || (b.farmers || 0) >= 3 || !reachableNear(b)) continue;
     const d = Math.hypot(b.x - u.x, b.z - u.z);
     if (d < bd) { bd = d; best = b; }
   }
@@ -628,7 +658,7 @@ function findRepair(u) {
   if (enemies.some(e => !e.dead)) return null;
   let best = null, bd = 45;
   for (const b of buildings) {
-    if (!b.done || b.hp >= b.maxhp * 0.9 || (b.repairers || 0) >= 2) continue;
+    if (!b.done || b.hp >= b.maxhp * 0.9 || (b.repairers || 0) >= 2 || !reachableNear(b)) continue;
     const d = Math.hypot(b.x - u.x, b.z - u.z);
     if (d < bd) { bd = d; best = b; }
   }
@@ -637,7 +667,7 @@ function findRepair(u) {
 function findDrop(x, z, type) {
   let best = null, bd = 1e9;
   for (const b of buildings) {
-    if (!b.done || !b.def.drop || !b.def.drop.includes(type)) continue;
+    if (!b.done || !b.def.drop || !b.def.drop.includes(type) || (b.type !== 'keep' && !reachableNear(b))) continue;
     const d = Math.hypot(b.x - x, b.z - z);
     if (d < bd) { bd = d; best = b; }
   }
@@ -649,12 +679,12 @@ function pickNode(u) {
   for (const type of order) {
     let best = null, bs = 1e9;
     for (const n of nodes) {
-      if (n.type !== type || n.amt <= 0 || n.workers >= 3 || (n === u.badNode && G.t < u.badUntil)) continue;
+      if (n.type !== type || n.amt <= 0 || n.workers >= 4 || (n === u.badNode && G.t < u.badUntil) || !reachableNear(n)) continue;
       const dr = findDrop(n.x, n.z, type);
       const sc = Math.hypot(n.x - u.x, n.z - u.z) + (dr ? Math.hypot(dr.x - n.x, dr.z - n.z) : 30);
       if (sc < bs) { bs = sc; best = n; }
     }
-    if (best && bs < 60) { best.workers++; return best; }
+    if (best) { best.workers++; return best; }
   }
   return null;
 }
@@ -691,6 +721,7 @@ function updateWorker(u, dt) {
       { const s = findSite(u); if (s) { s.builders++; u.site = s; u.state = 'toSite'; break; } }
       { const r = findRepair(u); if (r) { r.repairers = (r.repairers || 0) + 1; u.rep = r; u.state = 'toRepair'; break; } }
       { const n = pickNode(u); if (n) { u.node = n; u.state = 'toNode'; break; } }
+      { const f = findFarm(u); if (f) { f.farmers = (f.farmers || 0) + 1; u.farm = f; u.state = 'toFarm'; break; } }
       u.wait = 1.6; u.wp = validSpot(KX + rnd(-3, 3), KZ + rnd(2.2, 4));
       break;
     case 'toNode': {
@@ -759,6 +790,27 @@ function updateWorker(u, dt) {
       u.face = Math.atan2(r.x - u.x, r.z - u.z);
       r.hp = Math.min(r.maxhp, r.hp + r.maxhp * 0.05 * (1 + 0.06 * (u.lvl - 1)) * dt);
       if (Math.random() < dt * 2) { puff(r.x + rnd(-0.3, 0.3), r.y + 0.4, r.z + rnd(-0.3, 0.3), 0x7be07b, 1, 0.8, 0.4, 0.06); sfx('hammer', r.x, r.z); }
+      break;
+    }
+    case 'toFarm': {
+      const f = u.farm;
+      if (!f || f.dead || !f.done) { releaseWorker(u); u.state = 'idle'; break; }
+      if (Math.hypot(f.x - u.x, f.z - u.z) > f.def.r + 0.5) { const r = moveTo(u, f.x, f.z, dt, f); if (r.unreachable) { releaseWorker(u); u.state = 'idle'; u.wait = 2; } }
+      else { u.state = 'farm'; u.think = 0; u.gt = 0; }
+      break;
+    }
+    case 'farm': {   // tending a Berry Farm: extra food while there is nothing else to gather or build
+      const f = u.farm;
+      if (!f || f.dead || !f.done) { releaseWorker(u); u.state = 'idle'; break; }
+      u.face = Math.atan2(f.x - u.x, f.z - u.z);
+      u.gt += dt; if (u.gt > 2.5) { u.gt = 0; grantXP(u, 1); puff(f.x + rnd(-0.3, 0.3), f.y + 0.3, f.z + rnd(-0.3, 0.3), 0xd9344a, 1, 0.6, 0.4, 0.05); }
+      u.think += dt;
+      if (u.think > 6) {   // look for proper work every few seconds
+        u.think = 0;
+        const s = findSite(u), n = s ? null : pickNode(u);
+        if (s) { releaseWorker(u); s.builders++; u.site = s; u.state = 'toSite'; }
+        else if (n) { releaseWorker(u); u.node = n; u.state = 'toNode'; }
+      }
       break;
     }
     case 'goto': {
@@ -1036,6 +1088,7 @@ function step(dt) {
   for (const b of buildings) {
     if (!b.done) continue;
     if (b.def.income) for (const k in b.def.income) G.res[k] += b.def.income[k] * dt * (k === 'food' ? seasonFood() * (1 + 0.25 * G.tech.farm) : 1);
+    if (b.farmers) G.res.food += b.farmers * 0.3 * dt * seasonFood() * (1 + 0.25 * G.tech.farm);
     if (b.def.range) updateTower(b, dt);
   }
   // new settlers
@@ -1048,9 +1101,9 @@ function step(dt) {
   // forests regrow slowly
   G.treeT -= dt;
   if (G.treeT <= 0) {
-    G.treeT = 14;
+    G.treeT = 9;
     const trees = nodes.filter(n => n.type === 'wood');
-    if (trees.length && trees.length < 90) {
+    if (trees.length && trees.length < 110) {
       const p = pick(trees), i = p.i + rint(-1, 1), j = p.j + rint(-1, 1);
       if (freeGrass(i, j)) addNode('wood', i, j, 18);
     }
