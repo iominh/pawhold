@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.7.1
+- Update hint (installed app and website): when a new build has been fetched behind the running game, a bar offers "Reload now" (the game autosaves first) or "Later", naming the new version. The app checks for updates on load, whenever you return to it and every 20 minutes. A live version.json is published with each build.
+
 ## 1.7.0
 - Settlers always find work. Jobs (trees, rocks, berries, gold, building sites, repairs, drop-offs) are only chosen when they are reachable from the Great Hall, so nobody walks at a tree sealed off by buildings any more; the old 60-tile search limit is gone, so far forests are used; and any animal that ends up in a sealed pocket is stepped out of it. When nothing is left to gather or build, settlers go and tend Berry Farms (+0.3 food/s each, up to three per farm) instead of standing around. Trees regrow faster.
 - Population chip in the top bar is now labelled "Pop", turns red when housing is full, and tapping it explains how population works and how to grow it.

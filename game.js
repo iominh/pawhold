@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.7.0', GAME_BUILD = '00b0fd6';
+const GAME_VERSION = '1.7.1', GAME_BUILD = '2b154c0';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 15;

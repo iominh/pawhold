@@ -1,6 +1,6 @@
 /* Pawhold service worker: precaches the game so it installs and runs offline.
    VERSION changes with every build, which refreshes the cache. */
-const VERSION = '8e9d5b7071';
+const VERSION = '0a9ffe306b';
 const CACHE = 'pawhold-' + VERSION;
 const CORE = ['./', 'index.html', 'game.js', 'vendor/three.min.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png'];
 
@@ -24,6 +24,7 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (url.origin !== location.origin) return;
+  if (url.pathname.endsWith('version.json')) return;   // always live, so the update hint can name the new version
   // pages: network first so a new deploy shows up, cache when offline
   if (req.mode === 'navigate') {
     e.respondWith(fetch(req).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put('index.html', copy)); return r; }).catch(() => caches.match('index.html')));
