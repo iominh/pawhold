@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.2.2', GAME_BUILD = '9b5552d';
+const GAME_VERSION = '1.3.0', GAME_BUILD = 'b9eb47d';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 15;
@@ -2214,7 +2214,11 @@ function panBy(dx, dy) {
   cam.tz += sy * dx * k + (-cy) * dy * k;
 }
 const panVel = { x: 0, y: 0 };
+const camGoal = { yaw: null, pitch: null };
 function panKeys(dt) {
+  const ke = 1 - Math.exp(-9 * dt);
+  if (camGoal.yaw !== null) { const d = camGoal.yaw - cam.yaw; cam.yaw += d * ke; if (Math.abs(d) < 0.002) { cam.yaw = camGoal.yaw; camGoal.yaw = null; } }
+  if (camGoal.pitch !== null) { const d = camGoal.pitch - cam.pitch; cam.pitch += d * ke; if (Math.abs(d) < 0.002) { cam.pitch = camGoal.pitch; camGoal.pitch = null; } }
   if (!pts.size && (Math.abs(panVel.x) > 8 || Math.abs(panVel.y) > 8)) { panBy(panVel.x * dt, panVel.y * dt); const f = Math.exp(-4.5 * dt); panVel.x *= f; panVel.y *= f; }
   const sp = cam.dist * 0.9 * dt, sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
   let fx = 0, rx = 0;
@@ -2648,8 +2652,17 @@ canvasEl.addEventListener('pointermove', e => {
     } else if (pts.size === 2) {
       const a = [...pts.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), ang = Math.atan2(a[1].y - a[0].y, a[1].x - a[0].x);
       const mx = (a[0].x + a[1].x) / 2, my = (a[0].y + a[1].y) / 2;
-      if (pinch) { panBy(mx - pinch.mx, my - pinch.my); cam.dist *= pinch.d / d; cam.yaw -= Math.atan2(Math.sin(ang - pinch.a), Math.cos(ang - pinch.a)); }
-      pinch = { d, a: ang, mx, my };
+      if (pinch) {
+        camGoal.yaw = camGoal.pitch = null;
+        const dA = Math.atan2(Math.sin(ang - pinch.a), Math.cos(ang - pinch.a)), g = pinch;
+        g.accD += Math.abs(d - g.d); g.accA += Math.abs(dA) * d / 2;   // arc length travelled by the fingers while twisting
+        if (!g.zoom && g.accD > 16 && g.accD > g.accA * 1.2) g.zoom = true;
+        if (!g.rot && g.accA > 16 && g.accA > g.accD * 1.2) g.rot = true;
+        panBy(mx - g.mx, my - g.my);
+        if (g.zoom || (!g.rot && g.accD > g.accA)) cam.dist *= g.d / d;
+        if (g.rot) cam.yaw += dA;   // twist clockwise -> the map turns clockwise under your fingers
+        g.d = d; g.a = ang; g.mx = mx; g.my = my;
+      } else pinch = { d, a: ang, mx, my, accD: 0, accA: 0, zoom: false, rot: false };
     }
   } else if (e.pointerType === 'mouse') hoverScene(e.clientX, e.clientY);
   updateGhost(e.clientX, e.clientY);
@@ -2718,6 +2731,12 @@ function endPointer(e, cancelled) {
 }
 canvasEl.addEventListener('pointerup', e => endPointer(e, false));
 canvasEl.addEventListener('pointercancel', e => endPointer(e, true));
+const TWO_PI = Math.PI * 2;
+function turnBy(a) { const base = camGoal.yaw !== null ? camGoal.yaw : cam.yaw; camGoal.yaw = base + a; panVel.x = panVel.y = 0; }
+$('rotL').addEventListener('click', () => turnBy(-Math.PI / 4));
+$('rotR').addEventListener('click', () => turnBy(Math.PI / 4));
+$('tiltBtn').addEventListener('click', () => { camGoal.pitch = cam.pitch > 0.95 ? 0.6 : 1.15; });
+$('compass').addEventListener('click', () => { camGoal.yaw = 0.8 + Math.round((cam.yaw - 0.8) / TWO_PI) * TWO_PI; camGoal.pitch = 0.72; });
 const zoomBy = f => { cam.dist *= f; panVel.x = panVel.y = 0; };
 $('zoomIn').addEventListener('click', () => zoomBy(0.78));
 $('zoomOut').addEventListener('click', () => zoomBy(1.28));
