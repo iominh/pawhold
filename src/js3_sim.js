@@ -1,7 +1,7 @@
 /* ===================== game state ===================== */
 const G = {
   res: { wood: 0, stone: 0, food: 0, gold: 0 }, age: 0, t: 0, wave: 0, nextWave: 90, speed: 1, paused: true, over: false,
-  smith: 0, tech: { armor: 0, farm: 0, tools: 0 }, threat: 0, spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 0, keepB: null, kills: 0, sel: null, build: null, popCap: 5, selU: [], cmd: null
+  smith: 0, tech: { armor: 0, farm: 0, tools: 0 }, diff: 'normal', threat: 0, spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 0, keepB: null, kills: 0, sel: null, build: null, popCap: 5, selU: [], cmd: null
 };
 const buildings = [], units = [], enemies = [], shots = [], parts = [];
 let bid = 1;
@@ -913,7 +913,7 @@ function planWave(n) {
   const cost = { wolf: 1, boar: 3, raccoon: 2, badger: 5 };
   const opts = ['wolf'];
   if (n >= 2) opts.push('boar'); if (n >= 3) opts.push('raccoon'); if (n >= 4) opts.push('badger');
-  let left = 3 + n * 2.4; const list = [];
+  let left = (3 + n * 2.4) * (DIFF[G.diff] || DIFF.normal).count; const list = [];
   if (n % 5 === 0) { list.push('chief'); left -= 8; }
   while (left > 0) { const k = pick(opts); list.push(k); left -= cost[k]; }
   return list;
@@ -928,7 +928,7 @@ const COMPASS = ['east', 'south-east', 'south', 'south-west', 'west', 'north-wes
 const compassName = a => COMPASS[(Math.round(((a % 6.2832) + 6.2832) % 6.2832 / (Math.PI / 4))) % 8];
 function startWave() {
   G.wave++;
-  const list = planWave(G.wave), mult = 1 + 0.09 * (G.wave - 1);
+  const D = DIFF[G.diff] || DIFF.normal, list = planWave(G.wave), mult = (1 + 0.09 * (G.wave - 1)) * D.mult;
   const a1 = rnd(0, 6.283), a2 = a1 + Math.PI + rnd(-1, 1);
   const groups = G.wave >= 4 ? [a1, a2] : [a1];
   G.threat = a1;
@@ -944,9 +944,17 @@ function startWave() {
     mk.position.set(p[0], 0, p[1]); scene.add(mk);
     G.markers.push({ mk, until: G.t + 9 + list.length * 0.55 });
   });
-  G.nextWave = G.wave >= TOTAL_WAVES ? Infinity : G.t + clamp(64 - G.wave * 1.6, 40, 64);
+  G.nextWave = G.wave >= TOTAL_WAVES ? Infinity : G.t + clamp(D.gapHi - G.wave * 1.6, D.gapLo, D.gapHi);
   sfx('horn'); setTimeout(() => sfx('howl'), 900);
   toast(`Raid ${G.wave} of ${TOTAL_WAVES}: ${list.length} raiders from the ${groups.map(compassName).join(' and ')}`, true);
+}
+function setDifficulty(d, quiet) {
+  if (!DIFF[d]) return;
+  G.diff = d;
+  if (G.wave === 0 && !G.over) G.nextWave = DIFF[d].first;   // before the first raid the countdown follows the new setting right away
+  try { localStorage.setItem('pawhold.diff', d); } catch (e) { /* ignore */ }
+  if (!quiet) toast(`Difficulty: ${DIFF[d].name}. It applies from the next raid`);
+  if (typeof refreshDiffButtons === 'function') refreshDiffButtons();
 }
 function callEarly() {
   if (G.over || G.wave >= TOTAL_WAVES || G.nextWave === Infinity) return;
@@ -1094,7 +1102,7 @@ function clearEntities() {
 function newGame() {
   clearEntities();
   genWorld();
-  Object.assign(G, { res: { wood: 140, stone: 30, food: 100, gold: 20 }, age: 0, t: 0, wave: 0, nextWave: 90, over: false, smith: 0, tech: { armor: 0, farm: 0, tools: 0 }, threat: rnd(0, 6.28), spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 6, kills: 0, sel: null, build: null, selU: [], cmd: null });
+  Object.assign(G, { res: { wood: 140, stone: 30, food: 100, gold: 20 }, age: 0, t: 0, wave: 0, nextWave: (DIFF[G.diff] || DIFF.normal).first, over: false, smith: 0, tech: { armor: 0, farm: 0, tools: 0 }, threat: rnd(0, 6.28), spawnQ: [], markers: [], slot: 0, birthT: 6, treeT: 6, kills: 0, sel: null, build: null, selU: [], cmd: null });
   resetEnv();
   G.keepB = placeBuilding('keep', KX, KZ, true);
   for (let k = 0; k < 5; k++) makeUnit('worker', KX - 2 + k, KZ + 2.4);

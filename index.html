@@ -151,6 +151,11 @@ html,body{overscroll-behavior:none}
 .slot .meta b{display:block;color:var(--head);font-weight:700}
 .slot .meta small{color:var(--muted);font-size:12.5px;line-height:1.3;display:block}
 .row2{display:flex;gap:8px;flex-wrap:wrap}
+.diffRow{display:flex;gap:6px;flex-wrap:wrap}
+.diffRow .btn.on{border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,138,18,.4)}
+.diffHelp{margin:4px 0 8px;font-size:13px;color:var(--muted)}
+.tips{margin:6px 0 10px;padding-left:20px;font-size:13.5px;color:var(--text);line-height:1.45}
+.tips li{margin-bottom:5px}
 #marquee{position:fixed;border:1px dashed var(--gold);background:rgba(240,185,74,.14);pointer-events:none;display:none;z-index:20}
 
 @media (max-width:640px){
@@ -259,6 +264,22 @@ body{-webkit-user-select:none;user-select:none}
     <h2>Game menu</h2>
     <div class="ver" id="verLine"></div>
     <div class="row2" style="margin-bottom:10px"><button class="btn go" id="menuResume">Resume</button><button class="btn warn" id="saveNew">New game</button></div>
+    <h3 style="margin:6px 0;font-size:15px;color:var(--head)">Difficulty</h3>
+    <div class="diffRow" id="menuDiff"></div>
+    <p id="menuDiffHelp" class="diffHelp"></p>
+    <details id="tips"><summary style="cursor:pointer;color:var(--head);font-weight:700">Tips for holding the valley</summary>
+      <ol class="tips">
+        <li>Build two or three Burrow Houses straight away. New settlers only arrive while the population counter (top bar) has room.</li>
+        <li>Put a Lumber Camp at the edge of a forest and a Berry Farm near the Hall. Short carry trips are what makes your economy grow.</li>
+        <li>Before the first raid: a Barracks, two Fox Archers and a Panda Guard. Watchtowers shoot for free and need no housing.</li>
+        <li>Red flags show where the next raid will come from. Draw a wall there with a gap in front of a tower, so raiders pile up under fire.</li>
+        <li>Press Army, then tap the ground to move every defender at once. Hold keeps them in place; archers do best behind guards.</li>
+        <li>Boss raids come at 5, 10 and 15. Buy Sharpen Weapons and a Healing Hut before them, and keep some gold for a second Barracks.</li>
+        <li>Markets make gold with no workers. Gold trains Guards and Knights, buys ages and research.</li>
+        <li>Advancing an age rebuilds every wall stronger for free and raises the Hall's health.</li>
+        <li>Losing anyway? Lower the difficulty above at any time. It changes the next raid, not the one already running.</li>
+      </ol>
+    </details>
     <h3 style="margin:6px 0;font-size:15px;color:var(--head)">Save and load</h3>
     <div class="slots" id="slots"></div>
     <p id="storeNote" style="display:none;color:var(--danger)">This browser is blocking saves. Use Export to keep a file, and Import to load it later.</p>
@@ -291,6 +312,8 @@ body{-webkit-user-select:none;user-select:none}
       <li>Days run from sunrise to sunset to night, and the year turns from spring through summer, autumn and winter, with rain, storms, snow and fog to match. Seasons change your harvest. Use the Time, Season, Weather and Theme buttons to pick your own.</li>
       <li>Survive 15 raids to complete the chronicle.</li>
     </ul>
+    <div class="diffRow" id="introDiff"></div>
+    <p id="introDiffHelp" class="diffHelp"></p>
     <button class="btn go" id="startBtn">Begin the chronicle</button>
   </div>
 </div>

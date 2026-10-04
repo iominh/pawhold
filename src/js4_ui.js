@@ -593,6 +593,16 @@ $('againBtn').addEventListener('click', () => {
   audioInit(); newGame(); G.paused = false; cam.tx = KX; cam.tz = KZ;
   renderDock(); updateDock(true); ghost.visible = false;
 });
+function refreshDiffButtons() {
+  for (const [box, help] of [['introDiff', 'introDiffHelp'], ['menuDiff', 'menuDiffHelp']]) {
+    const el = $(box); if (!el) continue;
+    if (!el.childElementCount) for (const k in DIFF) { const b = document.createElement('button'); b.className = 'btn'; b.textContent = DIFF[k].name; b.dataset.d = k; b.addEventListener('click', () => { sfx('click'); setDifficulty(k, $('intro').classList.contains('on')); }); el.appendChild(b); }
+    for (const b of el.children) b.classList.toggle('on', b.dataset.d === G.diff);
+    $(help).textContent = DIFF[G.diff].blurb;
+  }
+}
+try { const d = localStorage.getItem('pawhold.diff'); if (DIFF[d]) setDifficulty(d, true); } catch (e) { /* ignore */ }
+refreshDiffButtons();
 $('btnArmy').addEventListener('click', () => { const army = units.filter(u => !u.dead && u.role !== 'worker'); if (!army.length) return toast('No defenders yet. Build a Barracks and train some', true); selectUnits(army, false); });
 $('btnMenu').addEventListener('click', () => { const hd = document.querySelector('.hud'); hd.classList.toggle('menu'); $('btnMenu').setAttribute('aria-expanded', hd.classList.contains('menu')); sfx('click'); });
 $('btnPause').addEventListener('click', () => { if (!G.over && !$('intro').classList.contains('on')) G.paused = !G.paused; });

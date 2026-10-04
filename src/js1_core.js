@@ -18,6 +18,11 @@ const AGE_COST = [null,
   { wood: 260, stone: 200, food: 180, gold: 60 },
   { wood: 320, stone: 380, food: 300, gold: 260 }];
 
+const DIFF = {
+  gentle: { name: 'Gentle', first: 150, gapHi: 100, gapLo: 60, count: 0.65, mult: 0.8, blurb: 'Fewer, weaker raiders and long breaks between raids. Good for learning the valley.' },
+  normal: { name: 'Normal', first: 120, gapHi: 74, gapLo: 48, count: 0.85, mult: 0.95, blurb: 'A fair fight. Raids come about every minute and grow steadily.' },
+  hard:   { name: 'Hard', first: 90, gapHi: 64, gapLo: 40, count: 1.0, mult: 1.0, blurb: 'The original pace: fast raids, full packs, bosses at 5, 10 and 15.' }
+};
 const WALL_COST = [{ wood: 6 }, { stone: 8 }, { stone: 10 }, { stone: 12 }];
 const WALL_HP = [110, 340, 520, 760];
 const BDEF = {
