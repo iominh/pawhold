@@ -16,10 +16,11 @@ function panBy(dx, dy) {
 }
 const TWO_PI = Math.PI * 2;
 const panVel = { x: 0, y: 0 };
-const camGoal = { yaw: null, pitch: null };
+const camGoal = { yaw: null, pitch: null, dist: null };
 function panKeys(dt) {
   const ke = 1 - Math.exp(-9 * dt);
   if (camGoal.yaw !== null) { const d = camGoal.yaw - cam.yaw; cam.yaw += d * ke; if (Math.abs(d) < 0.002) { cam.yaw = camGoal.yaw; camGoal.yaw = null; } }
+  if (camGoal.dist !== null) { const d = camGoal.dist - cam.dist; cam.dist += d * ke; if (Math.abs(d) < 0.03) { cam.dist = camGoal.dist; camGoal.dist = null; } }
   if (camGoal.pitch !== null) { const d = camGoal.pitch - cam.pitch; cam.pitch += d * ke; if (Math.abs(d) < 0.002) { cam.pitch = camGoal.pitch; camGoal.pitch = null; } }
   if (!pts.size && (Math.abs(panVel.x) > 8 || Math.abs(panVel.y) > 8)) { panBy(panVel.x * dt, panVel.y * dt); const f = Math.exp(-4.5 * dt); panVel.x *= f; panVel.y *= f; }
   const sp = cam.dist * 0.9 * dt, sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
@@ -331,7 +332,7 @@ function tryPlace(ai, aj, quiet) {
   if (!type) return false;
   const def = BDEF[type];
   if (G.age < def.age) { if (!quiet) toast(`${def.name} unlocks in the ${AGES[def.age].name}`, true); return false; }
-  if (!canPlace(type, ai, aj)) { if (!quiet) toast('Cannot build there', true); return false; }
+  if (!canPlace(type, ai, aj)) { if (!quiet) toast(placeWhy || 'Cannot build there', true); return false; }
   if (!afford(def.cost)) { if (!quiet) toast('Not enough resources', true); return false; }
   pay(def.cost);
   placeBuilding(type, ai, aj, false);
@@ -455,7 +456,7 @@ canvasEl.addEventListener('pointermove', e => {
       const a = [...pts.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), ang = Math.atan2(a[1].y - a[0].y, a[1].x - a[0].x);
       const mx = (a[0].x + a[1].x) / 2, my = (a[0].y + a[1].y) / 2;
       if (pinch) {
-        camGoal.yaw = camGoal.pitch = null;
+        camGoal.yaw = camGoal.pitch = camGoal.dist = null;
         const dA = Math.atan2(Math.sin(ang - pinch.a), Math.cos(ang - pinch.a)), g = pinch;
         g.accD += Math.abs(d - g.d); g.accA += Math.abs(dA) * d / 2;   // arc length travelled by the fingers while twisting
         if (!g.zoom && g.accD > 16 && g.accD > g.accA * 1.2) g.zoom = true;
@@ -540,17 +541,18 @@ function camStep(id) {
   if (id === 'zoomIn') cam.dist *= 0.78; else if (id === 'zoomOut') cam.dist *= 1.28;
   else if (id === 'rotL') turnBy(-Math.PI / 4); else if (id === 'rotR') turnBy(Math.PI / 4);
   else if (id === 'tiltBtn') camGoal.pitch = cam.pitch > 0.95 ? 0.6 : 1.15;
-  else if (id === 'compass') { camGoal.yaw = 0.8 + Math.round((cam.yaw - 0.8) / TWO_PI) * TWO_PI; camGoal.pitch = 0.72; }
+  else if (id === 'zoomReset') camGoal.dist = 30;
+  else if (id === 'compass') { camGoal.yaw = 0.8 + Math.round((cam.yaw - 0.8) / TWO_PI) * TWO_PI; camGoal.pitch = 0.72; camGoal.dist = 30; }
   panVel.x = panVel.y = 0;
 }
 function camHoldTick(dt) {   // press and hold zoom / rotate / tilt buttons for smooth continuous movement
   if (!camHold.id || performance.now() - camHold.t0 < 260) return;
-  camGoal.yaw = camGoal.pitch = null;
+  camGoal.yaw = camGoal.pitch = camGoal.dist = null;
   if (camHold.id === 'zoomIn') cam.dist *= Math.exp(-1.3 * dt); else if (camHold.id === 'zoomOut') cam.dist *= Math.exp(1.3 * dt);
   else if (camHold.id === 'rotL') cam.yaw -= 1.5 * dt; else if (camHold.id === 'rotR') cam.yaw += 1.5 * dt;
   else if (camHold.id === 'tiltBtn') cam.pitch += (camHold.dir || 1) * 0.7 * dt;
 }
-for (const id of ['zoomIn', 'zoomOut', 'rotL', 'rotR', 'tiltBtn', 'compass']) {
+for (const id of ['zoomIn', 'zoomOut', 'zoomReset', 'rotL', 'rotR', 'tiltBtn', 'compass']) {
   const b = $(id);
   b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); try { b.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ } camHold.id = id; camHold.t0 = performance.now(); camHold.dir = cam.pitch > 0.95 ? -1 : 1; });
   const up = e => { if (camHold.id !== id) return; const held = performance.now() - camHold.t0; camHold.id = null; if (held < 260 && e.type === 'pointerup') camStep(id); };
@@ -561,6 +563,7 @@ canvasEl.addEventListener('wheel', e => { e.preventDefault(); cam.dist *= Math.e
 window.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === ' ') { e.preventDefault(); if (!G.over && !$('intro').classList.contains('on')) G.paused = !G.paused; return; }
+  if (k === '0' && !e.ctrlKey && !e.metaKey) { camGoal.dist = 30; return; }
   if (k === 'escape') { G.build = null; G.sel = null; G.selU = []; G.cmd = null; ghost.visible = false; updateDock(true); return; }
   if (!e.ctrlKey && !e.metaKey && G.selU.length && !G.over) {
     if (k === 'f') { castAbilities(); return; }

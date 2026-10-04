@@ -105,13 +105,54 @@ function footprint(def, ai, aj) {
   return out;
 }
 const centerOf = (def, ai, aj) => def.size === 2 ? [ai + 0.5, aj + 0.5] : [ai, aj];
+let placeWhy = '';
 function canPlace(type, ai, aj) {
   const def = BDEF[type];
-  for (const [i, j] of footprint(def, ai, aj)) {
+  placeWhy = '';
+  const fp = footprint(def, ai, aj);
+  for (const [i, j] of fp) {
     if (i < MARGIN || j < MARGIN || i >= MAP - MARGIN || j >= MAP - MARGIN) return false;
     if (kind[i][j] !== 'g' || occ[i][j] || nodeAt[i][j]) return false;
   }
+  if (!def.wall && wouldTrap(fp)) { placeWhy = 'That would trap your animals. Leave a gap to walk through'; return false; }
   return true;
+}
+/* Would filling these tiles cut any of your animals off from the Great Hall?  Walls do not count: your animals walk through them. */
+const walkOpen = (i, j) => inMap(i, j) && kind[i][j] !== 'p' && (!occ[i][j] || occ[i][j].def.wall);
+function floodFromKeep(block) {
+  const seen = new Uint8Array(MAP * MAP), q = [];
+  const k = G.keepB;
+  if (!k) return seen;
+  for (let di = -3; di <= 3; di++) for (let dj = -3; dj <= 3; dj++) {
+    const i = Math.round(k.x) + di, j = Math.round(k.z) + dj;
+    if (walkOpen(i, j) && !block.has(i * MAP + j) && !seen[i * MAP + j]) { seen[i * MAP + j] = 1; q.push(i * MAP + j); }
+  }
+  for (let h = 0; h < q.length; h++) {
+    const c = q[h], ci = (c / MAP) | 0, cj = c % MAP;
+    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+      if (!di && !dj) continue;
+      const i = ci + di, j = cj + dj, id = i * MAP + j;
+      if (!walkOpen(i, j) || block.has(id) || seen[id]) continue;
+      if (di && dj && (!walkOpen(ci + di, cj) || block.has((ci + di) * MAP + cj) || !walkOpen(ci, cj + dj) || block.has(ci * MAP + cj + dj))) continue;   // no squeezing through diagonal gaps
+      seen[id] = 1; q.push(id);
+    }
+  }
+  return seen;
+}
+function wouldTrap(fp) {
+  const set = new Set(fp.map(([i, j]) => i * MAP + j));
+  let near = false;   // quick reject: a building that touches nothing cannot enclose anything
+  for (const [i, j] of fp) { for (let di = -1; di <= 1 && !near; di++) for (let dj = -1; dj <= 1; dj++) { const a = i + di, b = j + dj; if (!walkOpen(a, b) && !set.has(a * MAP + b)) { near = true; break; } } if (near) break; }
+  if (!near) return false;
+  const before = floodFromKeep(new Set()), after = floodFromKeep(set);
+  for (const u of units) {
+    if (u.dead) continue;
+    const i = Math.round(u.x), j = Math.round(u.z), id = i * MAP + j;
+    if (set.has(id)) continue;   // standing on the site: it gets nudged out
+    if (before[id] && !after[id]) return true;
+  }
+  // also keep the Hall's own surroundings reachable from every side that was open
+  return false;
 }
 function makeBuildingMesh(b) {
   if (b.group) scene.remove(b.group);

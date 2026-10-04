@@ -1,4 +1,4 @@
-const GAME_VERSION = '1.4.0', GAME_BUILD = 'bfb046c';
+const GAME_VERSION = '1.4.1', GAME_BUILD = '369f1b5';
 'use strict';
 /* ===================== Pawhold: constants and definitions ===================== */
 const MAP = 44, KX = 22, KZ = 22, MARGIN = 3, TOTAL_WAVES = 15;
@@ -740,13 +740,54 @@ function footprint(def, ai, aj) {
   return out;
 }
 const centerOf = (def, ai, aj) => def.size === 2 ? [ai + 0.5, aj + 0.5] : [ai, aj];
+let placeWhy = '';
 function canPlace(type, ai, aj) {
   const def = BDEF[type];
-  for (const [i, j] of footprint(def, ai, aj)) {
+  placeWhy = '';
+  const fp = footprint(def, ai, aj);
+  for (const [i, j] of fp) {
     if (i < MARGIN || j < MARGIN || i >= MAP - MARGIN || j >= MAP - MARGIN) return false;
     if (kind[i][j] !== 'g' || occ[i][j] || nodeAt[i][j]) return false;
   }
+  if (!def.wall && wouldTrap(fp)) { placeWhy = 'That would trap your animals. Leave a gap to walk through'; return false; }
   return true;
+}
+/* Would filling these tiles cut any of your animals off from the Great Hall?  Walls do not count: your animals walk through them. */
+const walkOpen = (i, j) => inMap(i, j) && kind[i][j] !== 'p' && (!occ[i][j] || occ[i][j].def.wall);
+function floodFromKeep(block) {
+  const seen = new Uint8Array(MAP * MAP), q = [];
+  const k = G.keepB;
+  if (!k) return seen;
+  for (let di = -3; di <= 3; di++) for (let dj = -3; dj <= 3; dj++) {
+    const i = Math.round(k.x) + di, j = Math.round(k.z) + dj;
+    if (walkOpen(i, j) && !block.has(i * MAP + j) && !seen[i * MAP + j]) { seen[i * MAP + j] = 1; q.push(i * MAP + j); }
+  }
+  for (let h = 0; h < q.length; h++) {
+    const c = q[h], ci = (c / MAP) | 0, cj = c % MAP;
+    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+      if (!di && !dj) continue;
+      const i = ci + di, j = cj + dj, id = i * MAP + j;
+      if (!walkOpen(i, j) || block.has(id) || seen[id]) continue;
+      if (di && dj && (!walkOpen(ci + di, cj) || block.has((ci + di) * MAP + cj) || !walkOpen(ci, cj + dj) || block.has(ci * MAP + cj + dj))) continue;   // no squeezing through diagonal gaps
+      seen[id] = 1; q.push(id);
+    }
+  }
+  return seen;
+}
+function wouldTrap(fp) {
+  const set = new Set(fp.map(([i, j]) => i * MAP + j));
+  let near = false;   // quick reject: a building that touches nothing cannot enclose anything
+  for (const [i, j] of fp) { for (let di = -1; di <= 1 && !near; di++) for (let dj = -1; dj <= 1; dj++) { const a = i + di, b = j + dj; if (!walkOpen(a, b) && !set.has(a * MAP + b)) { near = true; break; } } if (near) break; }
+  if (!near) return false;
+  const before = floodFromKeep(new Set()), after = floodFromKeep(set);
+  for (const u of units) {
+    if (u.dead) continue;
+    const i = Math.round(u.x), j = Math.round(u.z), id = i * MAP + j;
+    if (set.has(id)) continue;   // standing on the site: it gets nudged out
+    if (before[id] && !after[id]) return true;
+  }
+  // also keep the Hall's own surroundings reachable from every side that was open
+  return false;
 }
 function makeBuildingMesh(b) {
   if (b.group) scene.remove(b.group);
@@ -2224,10 +2265,11 @@ function panBy(dx, dy) {
 }
 const TWO_PI = Math.PI * 2;
 const panVel = { x: 0, y: 0 };
-const camGoal = { yaw: null, pitch: null };
+const camGoal = { yaw: null, pitch: null, dist: null };
 function panKeys(dt) {
   const ke = 1 - Math.exp(-9 * dt);
   if (camGoal.yaw !== null) { const d = camGoal.yaw - cam.yaw; cam.yaw += d * ke; if (Math.abs(d) < 0.002) { cam.yaw = camGoal.yaw; camGoal.yaw = null; } }
+  if (camGoal.dist !== null) { const d = camGoal.dist - cam.dist; cam.dist += d * ke; if (Math.abs(d) < 0.03) { cam.dist = camGoal.dist; camGoal.dist = null; } }
   if (camGoal.pitch !== null) { const d = camGoal.pitch - cam.pitch; cam.pitch += d * ke; if (Math.abs(d) < 0.002) { cam.pitch = camGoal.pitch; camGoal.pitch = null; } }
   if (!pts.size && (Math.abs(panVel.x) > 8 || Math.abs(panVel.y) > 8)) { panBy(panVel.x * dt, panVel.y * dt); const f = Math.exp(-4.5 * dt); panVel.x *= f; panVel.y *= f; }
   const sp = cam.dist * 0.9 * dt, sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
@@ -2539,7 +2581,7 @@ function tryPlace(ai, aj, quiet) {
   if (!type) return false;
   const def = BDEF[type];
   if (G.age < def.age) { if (!quiet) toast(`${def.name} unlocks in the ${AGES[def.age].name}`, true); return false; }
-  if (!canPlace(type, ai, aj)) { if (!quiet) toast('Cannot build there', true); return false; }
+  if (!canPlace(type, ai, aj)) { if (!quiet) toast(placeWhy || 'Cannot build there', true); return false; }
   if (!afford(def.cost)) { if (!quiet) toast('Not enough resources', true); return false; }
   pay(def.cost);
   placeBuilding(type, ai, aj, false);
@@ -2663,7 +2705,7 @@ canvasEl.addEventListener('pointermove', e => {
       const a = [...pts.values()], d = Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y), ang = Math.atan2(a[1].y - a[0].y, a[1].x - a[0].x);
       const mx = (a[0].x + a[1].x) / 2, my = (a[0].y + a[1].y) / 2;
       if (pinch) {
-        camGoal.yaw = camGoal.pitch = null;
+        camGoal.yaw = camGoal.pitch = camGoal.dist = null;
         const dA = Math.atan2(Math.sin(ang - pinch.a), Math.cos(ang - pinch.a)), g = pinch;
         g.accD += Math.abs(d - g.d); g.accA += Math.abs(dA) * d / 2;   // arc length travelled by the fingers while twisting
         if (!g.zoom && g.accD > 16 && g.accD > g.accA * 1.2) g.zoom = true;
@@ -2748,17 +2790,18 @@ function camStep(id) {
   if (id === 'zoomIn') cam.dist *= 0.78; else if (id === 'zoomOut') cam.dist *= 1.28;
   else if (id === 'rotL') turnBy(-Math.PI / 4); else if (id === 'rotR') turnBy(Math.PI / 4);
   else if (id === 'tiltBtn') camGoal.pitch = cam.pitch > 0.95 ? 0.6 : 1.15;
-  else if (id === 'compass') { camGoal.yaw = 0.8 + Math.round((cam.yaw - 0.8) / TWO_PI) * TWO_PI; camGoal.pitch = 0.72; }
+  else if (id === 'zoomReset') camGoal.dist = 30;
+  else if (id === 'compass') { camGoal.yaw = 0.8 + Math.round((cam.yaw - 0.8) / TWO_PI) * TWO_PI; camGoal.pitch = 0.72; camGoal.dist = 30; }
   panVel.x = panVel.y = 0;
 }
 function camHoldTick(dt) {   // press and hold zoom / rotate / tilt buttons for smooth continuous movement
   if (!camHold.id || performance.now() - camHold.t0 < 260) return;
-  camGoal.yaw = camGoal.pitch = null;
+  camGoal.yaw = camGoal.pitch = camGoal.dist = null;
   if (camHold.id === 'zoomIn') cam.dist *= Math.exp(-1.3 * dt); else if (camHold.id === 'zoomOut') cam.dist *= Math.exp(1.3 * dt);
   else if (camHold.id === 'rotL') cam.yaw -= 1.5 * dt; else if (camHold.id === 'rotR') cam.yaw += 1.5 * dt;
   else if (camHold.id === 'tiltBtn') cam.pitch += (camHold.dir || 1) * 0.7 * dt;
 }
-for (const id of ['zoomIn', 'zoomOut', 'rotL', 'rotR', 'tiltBtn', 'compass']) {
+for (const id of ['zoomIn', 'zoomOut', 'zoomReset', 'rotL', 'rotR', 'tiltBtn', 'compass']) {
   const b = $(id);
   b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); try { b.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ } camHold.id = id; camHold.t0 = performance.now(); camHold.dir = cam.pitch > 0.95 ? -1 : 1; });
   const up = e => { if (camHold.id !== id) return; const held = performance.now() - camHold.t0; camHold.id = null; if (held < 260 && e.type === 'pointerup') camStep(id); };
@@ -2769,6 +2812,7 @@ canvasEl.addEventListener('wheel', e => { e.preventDefault(); cam.dist *= Math.e
 window.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === ' ') { e.preventDefault(); if (!G.over && !$('intro').classList.contains('on')) G.paused = !G.paused; return; }
+  if (k === '0' && !e.ctrlKey && !e.metaKey) { camGoal.dist = 30; return; }
   if (k === 'escape') { G.build = null; G.sel = null; G.selU = []; G.cmd = null; ghost.visible = false; updateDock(true); return; }
   if (!e.ctrlKey && !e.metaKey && G.selU.length && !G.over) {
     if (k === 'f') { castAbilities(); return; }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.1
+- Building placement can no longer trap your animals: a building that would cut any of them off from the Great Hall is refused with a message ("Leave a gap to walk through"), and the ghost shows red. Walls never count, because your animals walk through them.
+- New 1x zoom reset button on the touch camera controls (key 0 on desktop). The reset-view button now also resets zoom.
+
 ## 1.4.0
 - Palisade and Stone Wall are now one building, Wall, available from the start. It upgrades itself every age like towers do: wooden stakes, stone, battlements (Castle Age), reinforced stone with a gold band (Gunpowder Age). Existing walls are rebuilt stronger for free when you advance and keep their damage ratio.
 - Wall cost and health follow your current age (6 wood, then 8, 10 and 12 stone; 110, 340, 520 and 760 hp).
